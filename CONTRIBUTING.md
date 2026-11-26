@@ -4,10 +4,11 @@ OpenCode MCP is a small, safety-sensitive bridge to a live OpenCode service. Kee
 
 ## Setup
 
-Bun is the build and test runner. The packaged CLI targets Node 22.14 or newer.
+Bun 1.4.5 is the pinned build, formatter, and test runner. The packaged CLI targets Node 22.14 or newer. Formatting uses native `bun fmt`; linting uses `oxlint`.
 
 ```sh
 bun install --frozen-lockfile
+bun run format:check
 bun run lint
 bun run typecheck
 bun run build
@@ -15,7 +16,7 @@ bun test
 npm pack --dry-run
 ```
 
-Run one test file with `bun test tests/client.test.ts` or `bun test tests/mcp.test.ts`. The Node stdio tests in `tests/mcp.test.ts` and `tests/cli.test.ts` spawn `dist/cli.js` by default, so build before the full suite. Set `OPENCODE_MCP_TEST_CLI` to point those tests at another built CLI.
+Run one test file with `bun test tests/client.test.ts` or `bun test tests/mcp.test.ts`. The Node stdio tests in `tests/mcp.test.ts` and `tests/cli.test.ts` spawn `dist/cli.js` by default, so build before the full suite. Set `OPENCODE_MCP_TEST_CLI` to point those tests at another built CLI. `tests/package.test.ts` packs the tarball, installs it into a fresh Node consumer, compiles a strict `NodeNext` fixture with `skipLibCheck: false`, and runs the installed CLI with Node; it also needs a completed build.
 
 ## Architecture
 
@@ -29,16 +30,19 @@ The source is split by responsibility under `src/`:
 | `scope.ts` and `security.ts`             | Workspace checks, capability gates, operation classification, and credential stripping.  |
 | `events.ts` and `history.ts`             | Bounded event reads and grouping of native messages by user prompt.                      |
 | `server.ts`                              | MCP tool registration, including dynamic tools for native operations.                    |
-| `index.ts`                               | Public SDK exports.                                                                      |
+| `index.ts` and `types.ts`                | Public SDK exports and interface-shaped request/operation types.                         |
+| `globals.d.ts`                           | Ambient internal utility types shared by source and tests; never part of the public SDK. |
 | `tests/client.test.ts`, `tests/stub.ts`  | Client routing, gate, and event tests against the local stub OpenCode service.           |
 | `tests/mcp.test.ts`, `tests/cli.test.ts` | Node stdio MCP handshake and `doctor` CLI checks against a built CLI.                    |
+| `tests/package.test.ts`                  | Tarball contents, installed Node CLI, and strict NodeNext consumer declarations.         |
+| `scripts/fix-declaration-imports.mjs`    | Adds NodeNext-compatible `.js` extensions to emitted declaration imports.                |
 | `docs/SPECIFICATION.md`                  | Product, compatibility, and safety contract.                                             |
 
 Request flow: the CLI resolves a connection, loads the native operation catalog, and registers MCP tools. Each call resolves path and query parameters, applies workspace scope and capability checks, makes one bounded request, sanitizes the result, and returns a native payload or an explicit error. History and events use the same client path so gates and scope are not bypassed.
 
 ## Testing
 
-- Add tests for routing and parameter encoding, capability gating for named and generic paths, credential filtering, history grouping with steering and tool output, event filtering/cursors, and the Node stdio MCP and CLI checks.
+- Add tests for routing and parameter encoding, capability gating for named and generic paths, credential filtering, history grouping with steering and tool output, event filtering/cursors, the Node stdio MCP and CLI checks, and package/declaration consumption.
 - Prefer the stub OpenCode service in `tests/stub.ts`; it keeps credentials and real chats out of the test path.
 - For checks against a real OpenCode 2.4.1 service, use disposable sessions and workspaces, and do not modify real chats. Live checks can be gated in CI.
 - Test the built package when changing CLI or MCP registration behavior: run `bun run build`, `npm pack --dry-run`, or the smoke install from CI.
@@ -50,6 +54,7 @@ Request flow: the CLI resolves a connection, loads the native operation catalog,
 - Do not weaken capability gates, `confirm` requirements, directory checks, redirect blocking, timeout or size bounds, secret filtering, or excluded credential/auth/pairing/RPC routes.
 - Preserve upstream cursors and IDs. Do not invent cursors or emulate upstream operations that the installed version does not expose.
 - Keep stdout protocol-only in MCP server mode, and never commit credentials or machine-specific service registrations.
+- Keep TypeScript source and tests on extensionless relative imports. Do not hand-edit emitted declarations; the build normalizes them for NodeNext.
 - Add tests for behavior changes. Update README, CHANGELOG, and package metadata when public behavior or packaging changes.
 - Use the pull request template to state the change, verification steps, and any safety or scope impact.
 

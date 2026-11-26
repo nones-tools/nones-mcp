@@ -12,14 +12,25 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: oven-sh/setup-bun@v2.2.0
+        with:
+          bun-version: 1.4.5
       - uses: actions/setup-node@v7.1.0
         with:
           node-version: 22.14.0
       - run: bun install --frozen-lockfile
+      - run: bun run format:check
       - run: bun run lint
       - run: bun run typecheck
       - run: bun run build
       - run: bun test
       - run: npm pack --dry-run
-      - run: npm pack && mkdir /tmp/opencode-mcp-smoke && cd /tmp/opencode-mcp-smoke && npm init -y && npm install "$GITHUB_WORKSPACE"/*.tgz && node node_modules/@nones/opencode-mcp/dist/cli.js help
-      - run: OPENCODE_MCP_TEST_CLI=/tmp/opencode-mcp-smoke/node_modules/@nones/opencode-mcp/dist/cli.js bun test tests/client.test.ts tests/cli.test.ts tests/mcp.test.ts
+      - name: Install packed package
+        run: |
+          tarball=$(npm pack --silent)
+          workdir=$(mktemp -d)
+          cd "$workdir"
+          npm init -y >/dev/null
+          npm install "$GITHUB_WORKSPACE/$tarball"
+          node node_modules/@nones/opencode-mcp/dist/cli.js help
+          cd "$GITHUB_WORKSPACE"
+          OPENCODE_MCP_TEST_CLI="$workdir/node_modules/@nones/opencode-mcp/dist/cli.js" bun test tests/client.test.ts tests/cli.test.ts tests/mcp.test.ts

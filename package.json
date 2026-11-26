@@ -1,10 +1,11 @@
 {
   "name": "@nones/opencode-mcp",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "type": "module",
   "description": "MCP server and SDK for an existing OpenCode service",
   "license": "MIT",
   "author": "ZeiZel <valera2003lvov@yandex.ru>",
+  "packageManager": "bun@1.4.5",
   "engines": {
     "node": ">=22.14"
   },
@@ -28,10 +29,13 @@
     "docs/assets/banner.svg"
   ],
   "scripts": {
-    "build": "bun build src/cli.ts src/index.ts --outdir dist --target node --format esm --packages external && tsc -p tsconfig.build.json",
+    "build": "bun build src/cli.ts src/index.ts --outdir dist --target node --format esm --packages external && tsc -p tsconfig.build.json && node scripts/fix-declaration-imports.mjs",
     "test": "bun test",
+    "test:package": "bun test tests/package.test.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "biome lint src tests",
+    "lint": "oxlint --deny-warnings src tests scripts",
+    "format": "bun fmt",
+    "format:check": "bun fmt --check",
     "pack": "bun run build && npm pack",
     "prepublishOnly": "bun run build"
   },
@@ -41,9 +45,9 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.9",
     "@types/bun": "latest",
     "@types/node": "latest",
+    "oxlint": "1.95.0",
     "typescript": "7.0.2"
   },
   "publishConfig": {

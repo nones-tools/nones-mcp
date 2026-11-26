@@ -8,6 +8,7 @@
 
 ## Verification
 
+- [ ] `bun run format:check`
 - [ ] `bun run lint`
 - [ ] `bun run typecheck`
 - [ ] `bun run build`

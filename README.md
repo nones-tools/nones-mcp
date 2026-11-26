@@ -185,6 +185,8 @@ const client = await OpenCodeClient.connect();
 const info = await client.request({ operation: "server.info" });
 ```
 
+The published declarations are self-contained per module and resolve for an external TypeScript `NodeNext` consumer. Public signatures avoid ambient globals, so the SDK does not require this repository's internal declaration files.
+
 ## Upstream behavior
 
 - The initial target is OpenCode 2.4.1. Operation IDs, parameters, and experimental surfaces come from the connected server's `/openapi.json`; inspect `opencode_operations` rather than assuming a catalog entry exists.
@@ -195,4 +197,4 @@ const info = await client.request({ operation: "server.info" });
 
 ## Development
 
-Bun is the build and test runner; the published CLI runs on Node 22.14 or newer. Run `bun install --frozen-lockfile`, `bun run lint`, `bun run typecheck`, `bun run build`, `bun test`, and `npm pack --dry-run`. See [CONTRIBUTING.md](CONTRIBUTING.md) for architecture, testing, and review guidance.
+Bun 1.4.5 is the pinned build, formatting, and test runner; the published CLI runs on Node 22.14 or newer. Formatting uses native `bun fmt`, linting uses `oxlint`, and declaration emit uses TypeScript. Run `bun install --frozen-lockfile`, `bun run format:check`, `bun run lint`, `bun run typecheck`, `bun run build`, `bun test`, and `npm pack --dry-run`. `bun run test:package` packs the tarball, installs it into a fresh consumer, checks NodeNext declarations, and runs the installed Node CLI. See [CONTRIBUTING.md](CONTRIBUTING.md) for architecture, testing, and review guidance.

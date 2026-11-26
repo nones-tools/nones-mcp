@@ -3,5 +3,5 @@
  * own serializers so this helper never touches newline-delimited JSON-RPC.
  */
 export function formatJson(value: unknown): string {
-	return JSON.stringify(value, null, 2) ?? "null";
+  return JSON.stringify(value, null, 2) ?? "null";
 }

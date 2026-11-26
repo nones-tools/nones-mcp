@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0
+
+Tooling, type-surface, and packaging release; runtime behavior is unchanged.
+
+- Removed Biome. Formatting now uses native `bun fmt` with a `format:check` gate, and linting uses `oxlint`; Bun 1.4.5 is pinned for local and CI use.
+- Switched all TypeScript source and test imports to extensionless relative specifiers, including type-only imports.
+- Converted object-shaped type aliases to interfaces; unions, primitives, and generic/function utilities remain aliases. Internal project-wide utilities live in ambient `src/globals.d.ts`, while public signatures use self-contained structural types.
+- Kept `tsc` declaration emit and added a narrow post-build normalization step so emitted declaration imports resolve for an external `NodeNext` consumer without invisible global types.
+- Added package tests that pack and install the tarball into a fresh consumer, compile a strict `NodeNext` fixture with `skipLibCheck: false`, and run the installed CLI with Node.
+- Updated README, CONTRIBUTING, specification, issue templates, and Verify/Release workflows for the new toolchain and checks.
+
 ## 0.1.1
 
 Documentation, refactoring, and packaging release.
