@@ -64,7 +64,8 @@ export async function versionCommand({
   const nextLockText = updateLockText(lockText, target);
 
   const changes = [];
-  if (rootPackage.version !== target) {
+  const rootVersionChanged = rootPackage.version !== target;
+  if (rootVersionChanged) {
     changes.push(`package.json version: ${rootPackage.version} -> ${target}`);
     rootPackage.version = target;
   }
@@ -101,7 +102,7 @@ export async function versionCommand({
     return { written: false, version: target, changes: [] };
   }
 
-  if (rootPackage.version !== target || rootDependencyChanges.length > 0) {
+  if (rootVersionChanged || rootDependencyChanges.length > 0) {
     await atomicWrite(rootFile, formatJson(rootPackage));
   }
   for (const { file, pkg } of packageEntries) {

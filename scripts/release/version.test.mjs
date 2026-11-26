@@ -20,6 +20,28 @@ test("version dry-run leaves every file unchanged", async (t) => {
   for (const relative of FILES) assert.equal(after.get(relative), before.get(relative), relative);
 });
 
+test("version writes a stale root version even when root @nones deps are unchanged or empty", async (t) => {
+  for (const emptyInternalDependencies of [false, true]) {
+    const root = await makeFixture("5.0.0");
+    t.after(() => cleanup(root));
+    const rootFile = path.join(root, "package.json");
+    const rootPackage = JSON.parse(await readFile(rootFile, "utf8"));
+    rootPackage.version = "0.0.0";
+    if (emptyInternalDependencies) {
+      for (const name of Object.keys(rootPackage.devDependencies)) {
+        if (name.startsWith("@nones/")) delete rootPackage.devDependencies[name];
+      }
+    }
+    await writeFile(rootFile, `${JSON.stringify(rootPackage, null, 2)}\n`);
+
+    const result = await versionCommand({ root, version: "5.0.0", write: true, logger: silent });
+    assert.equal(result.written, true);
+    assert.ok(result.changes.includes("package.json version: 0.0.0 -> 5.0.0"));
+    assert.equal(JSON.parse(await readFile(rootFile, "utf8")).version, "5.0.0");
+    await validateManifests({ root, version: "5.0.0" });
+  }
+});
+
 test("version synchronizes root, all four workspaces, dependencies and bun.lock", async (t) => {
   const root = await makeFixture(null);
   t.after(() => cleanup(root));
