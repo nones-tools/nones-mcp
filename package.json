@@ -1,0 +1,30 @@
+{
+  "name": "nones-mcp-workspace",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Bun Workspaces prototype and migration spec for the @nones MCP server suite",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "bun@1.4.5",
+  "engines": {
+    "node": ">=22.14"
+  },
+  "workspaces": [
+    "apps/*",
+    "adapters/*"
+  ],
+  "scripts": {
+    "build": "bun run --cwd apps/core build && bun run --cwd apps/kaiten build && bun run --cwd apps/opencode build",
+    "typecheck": "bun run --cwd apps/core typecheck && bun run --cwd apps/kaiten typecheck && bun run --cwd apps/opencode typecheck",
+    "test": "bun run build && bun test",
+    "test:e2e": "bun test apps/core/test/e2e",
+    "pack:check": "bun run scripts/pack-check.ts",
+    "verify": "bun run build && bun run typecheck && bun test && bun run pack:check"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.11",
+    "typescript": "7.0.2",
+    "@nones/kaiten-module": "workspace:*",
+    "@nones/opencode-module": "workspace:*"
+  }
+}

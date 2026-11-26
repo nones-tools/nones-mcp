@@ -1,0 +1,35 @@
+{
+  "name": "@nones/mcp-core",
+  "version": "0.1.0",
+  "description": "Single stdio MCP entry that hosts explicitly installed @nones modules",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "nones-mcp": "./dist/bin.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.14"
+  },
+  "scripts": {
+    "build": "bun build src/index.ts src/bin.ts --outdir dist --target node --format esm --packages external && tsc -p tsconfig.build.json && node ../../scripts/fix-declarations.mjs dist",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.4.0",
+    "@modelcontextprotocol/client": "2.4.0"
+  },
+  "devDependencies": {}
+}

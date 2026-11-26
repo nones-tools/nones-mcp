@@ -1,0 +1,37 @@
+{
+  "name": "@nones/opencode-module",
+  "version": "0.1.0",
+  "description": "Core module adapter for the published @nones/opencode-mcp 0.3.0 server",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.14"
+  },
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target node --format esm --packages external && tsc -p tsconfig.build.json && node ../../scripts/fix-declarations.mjs dist",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/client": "2.4.0",
+    "@nones/opencode-mcp": "0.3.0"
+  },
+  "peerDependencies": {
+    "@nones/mcp-core": "^0.1.0"
+  },
+  "devDependencies": {
+    "@nones/mcp-core": "workspace:*"
+  }
+}
