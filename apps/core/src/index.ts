@@ -22,12 +22,7 @@ export {
   type ToolDefinition,
   type ToolModule,
 } from "./types";
-export {
-  type JournalAdapter,
-  type JournalAdapterRef,
-  type JournalRecord,
-  type JournalSettings,
-} from "./journal";
+export * from "./journal/index";
 export {
   CONFIG_DIR_ENV,
   loadConfig,
@@ -41,3 +36,4 @@ export { envNameAllowedFor, isDeniedEnvName, TRUSTED_MODULE_IDS } from "./trust"
 export { createLogger, scopedLogger } from "./logger";
 export { createServer, SERVER_NAME } from "./server";
 export { StdioForwarder, type StdioForwardOptions } from "./forward";
+export { InMemoryForwarder, type InMemoryForwardOptions } from "./in-memory";

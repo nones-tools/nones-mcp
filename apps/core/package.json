@@ -13,6 +13,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./journal": {
+      "types": "./dist/journal/index.d.ts",
+      "import": "./dist/journal/index.js"
     }
   },
   "files": [
@@ -23,7 +27,7 @@
     "node": ">=22.14"
   },
   "scripts": {
-    "build": "bun build src/index.ts src/bin.ts --outdir dist --target node --format esm --packages external && tsc -p tsconfig.build.json && node ../../scripts/fix-declarations.mjs dist",
+    "build": "rm -rf dist && bun build src/index.ts src/bin.ts src/journal/index.ts --outdir dist --target node --format esm --packages external && tsc -p tsconfig.build.json && node ../../scripts/fix-declarations.mjs dist",
     "typecheck": "tsc --noEmit",
     "test": "bun test"
   },
@@ -31,5 +35,10 @@
     "@modelcontextprotocol/server": "2.4.0",
     "@modelcontextprotocol/client": "2.4.0"
   },
-  "devDependencies": {}
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nones-tools/nones-mcp.git",
+    "directory": "apps/core"
+  }
 }

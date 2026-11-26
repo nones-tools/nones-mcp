@@ -1,5 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
-import { encodeCursor, type JournalCursor } from "./cursor";
+import { encodeCursor, type JournalCursor } from "@nones/mcp-core/journal";
 import type {
   JournalFilter,
   JournalOperationCount,
@@ -8,8 +8,8 @@ import type {
   JournalPage,
   JournalRecord,
   JournalStats,
-} from "./types";
-import { utcToMs } from "./validation";
+} from "@nones/mcp-core/journal";
+import { utcToMs } from "@nones/mcp-core/journal";
 
 type Row = Record<string, unknown>;
 

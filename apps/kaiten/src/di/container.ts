@@ -17,6 +17,8 @@ import { TOKENS } from './tokens';
 
 export interface ContainerOverrides extends Partial<KaitenConfig> {
   client?: HttpTransport;
+  /** Pre-validated, module-scoped config; bypasses env/file loading when set. */
+  config?: KaitenConfig;
 }
 
 /**
@@ -36,12 +38,16 @@ export interface ContainerOverrides extends Partial<KaitenConfig> {
  */
 export function buildContainer(overrides: ContainerOverrides = {}): Container {
   const container = new Container();
-  const { client, ...configOverrides } = overrides;
+  const { client, config: providedConfig, ...configOverrides } = overrides;
 
-  container
-    .bind(TOKENS.Config)
-    .toDynamicValue(() => loadConfig(configOverrides))
-    .inSingletonScope();
+  if (providedConfig) {
+    container.bind(TOKENS.Config).toConstantValue(providedConfig);
+  } else {
+    container
+      .bind(TOKENS.Config)
+      .toDynamicValue(() => loadConfig(configOverrides))
+      .inSingletonScope();
+  }
 
   container
     .bind(TOKENS.HttpTransport)

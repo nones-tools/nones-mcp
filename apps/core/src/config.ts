@@ -1,19 +1,15 @@
 import { homedir } from "node:os";
 import path from "node:path";
-import type { JournalSettings } from "./journal";
+import type { JournalSettings } from "./journal/index";
 import type {
   LogLevel,
   ModuleConfig,
   SharedConfig,
 } from "./types";
 import { secretValues } from "./logger";
-import {
-  parseJournal,
-  parseModuleConfig,
-  parseShared,
-  readJson,
-} from "./config-schema";
-import { asAbsolutePath, asObject, fail, ValidationError } from "./validate";
+import { resolveJournalConfig } from "./journal/index";
+import { parseModuleConfig, parseShared, readJson } from "./config-schema";
+import { asAbsolutePath, fail, ValidationError } from "./validate";
 
 export const CONFIG_DIR_ENV = "NONES_CONFIG_DIR";
 
@@ -77,14 +73,7 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<Loade
   const warnings: string[] = [];
   const sharedRaw = await readJson(path.join(directory, "config.json"));
   const shared = parseShared(sharedRaw ?? { modules: [] });
-  const legacyRaw = asObject(sharedRaw ?? {}, "config").journal;
-  const journalFileRaw = await readJson(path.join(directory, "journal.json"));
-  if (journalFileRaw !== undefined && legacyRaw !== undefined) {
-    warnings.push("journal.json overrides the legacy config.json journal object");
-  }
-  const journal = journalFileRaw !== undefined
-    ? parseJournal(journalFileRaw, "journal.json")
-    : parseJournal(legacyRaw, "config.json#journal");
+  const journal = await resolveJournalConfig(env, process.cwd(), directory);
   const modules: LoadedModuleConfig[] = [];
   const secrets: string[] = [];
   for (const id of shared.modules) {

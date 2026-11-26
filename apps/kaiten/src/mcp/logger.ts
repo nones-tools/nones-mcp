@@ -8,29 +8,31 @@ const LOG_LEVELS: Record<KaitenConfig['logLevel'], number> = {
   debug: 3,
 };
 
-// Config load failure (e.g. missing credentials) must not crash startup - the
-// server still needs to answer `tools/list` without credentials configured.
-// Fall back to 'info' in that case, matching the old server's behavior.
-function resolveLogLevel(): KaitenConfig['logLevel'] {
-  try {
-    const config = loadConfig();
-    if (config.logLevel) return config.logLevel;
-  } catch {
-    // Use default log level
+export interface ToolLogger {
+  debug(message: string, data?: unknown): void;
+  error(message: string, data?: unknown): void;
+}
+
+let ambientLevel: KaitenConfig['logLevel'] | null = null;
+
+/**
+ * Lazily resolves the standalone level on first use - importing this module
+ * must not read process.env or the filesystem. Config load failure (missing
+ * credentials) must not crash startup; fall back to 'info'.
+ */
+export function getLogLevel(): KaitenConfig['logLevel'] {
+  if (!ambientLevel) {
+    try {
+      ambientLevel = loadConfig().logLevel || 'info';
+    } catch {
+      ambientLevel = 'info';
+    }
   }
-  return 'info';
+  return ambientLevel;
 }
 
-export const logLevel: KaitenConfig['logLevel'] = resolveLogLevel();
-
-function shouldLog(level: keyof typeof LOG_LEVELS): boolean {
-  return LOG_LEVELS[level] <= LOG_LEVELS[logLevel];
-}
-
-// All diagnostic logging goes to stderr only - stdout is the MCP protocol
-// channel over stdio and must never carry anything but JSON-RPC messages.
-export function log(level: keyof typeof LOG_LEVELS, message: string, data?: unknown): void {
-  if (!shouldLog(level)) return;
+function emit(configured: KaitenConfig['logLevel'], level: keyof typeof LOG_LEVELS, message: string, data?: unknown): void {
+  if (LOG_LEVELS[level] > LOG_LEVELS[configured]) return;
   const timestamp = new Date().toISOString();
   const msg = `[${timestamp}] [${level.toUpperCase()}] ${message}`;
   if (data !== undefined) {
@@ -38,6 +40,14 @@ export function log(level: keyof typeof LOG_LEVELS, message: string, data?: unkn
   } else {
     console.error(msg);
   }
+}
+
+/** Module-scoped logger: the level is captured per runtime, never global. */
+export function createToolLogger(level: KaitenConfig['logLevel']): ToolLogger {
+  return {
+    debug: (message, data) => emit(level, 'debug', message, data),
+    error: (message, data) => emit(level, 'error', message, data),
+  };
 }
 
 function redact(value: unknown): unknown {
@@ -49,6 +59,11 @@ function redact(value: unknown): unknown {
   return value;
 }
 
+// Standalone diagnostics only. stdout stays the MCP protocol channel.
+export function log(level: keyof typeof LOG_LEVELS, message: string, data?: unknown): void {
+  emit(getLogLevel(), level, message, data);
+}
+
 export function errorLog(message: string, data?: unknown): void {
   log('error', message, data);
 }
@@ -56,3 +71,5 @@ export function errorLog(message: string, data?: unknown): void {
 export function debugLog(message: string, data?: unknown): void {
   log('debug', message, data);
 }
+
+export const ambientToolLogger: ToolLogger = { debug: debugLog, error: errorLog };

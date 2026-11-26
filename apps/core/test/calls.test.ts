@@ -12,12 +12,12 @@ beforeAll(async () => {
   client = await fixture.connect();
   slowFixture = await setupE2E(900);
   slowClient = await slowFixture.connect();
-});
+}, 30_000);
 
 afterAll(async () => {
   await fixture.close();
   await slowFixture.close();
-});
+}, 30_000);
 
 describe("forwarded calls", () => {
   test("kaiten_health reports readiness without leaking the token", async () => {

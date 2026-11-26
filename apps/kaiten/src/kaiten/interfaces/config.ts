@@ -41,7 +41,7 @@ export interface KaitenConfig {
   httpRetries: number | null;
 }
 
-export type ConfigSource = 'process env' | 'explicit config-file' | '.kaiten.env' | '.env' | '~/.kaiten/config' | null;
+export type ConfigSource = 'process env' | 'explicit config-file' | '.kaiten.env' | '.env' | '~/.kaiten/config' | 'module config' | null;
 
 /** Safe-to-display configuration state. It deliberately contains no secrets. */
 export interface KaitenConfigHealth {

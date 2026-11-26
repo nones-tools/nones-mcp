@@ -15,7 +15,9 @@ export interface Sandbox {
 
 /** Scratch space stays inside the repository under ignored .tmp/. */
 export async function makeSandbox(): Promise<Sandbox> {
-  const root = await mkdtemp(path.join(repoRoot, ".tmp", "tests", "run-"));
+  const parent = path.join(repoRoot, ".tmp", "tests");
+  await mkdir(parent, { recursive: true });
+  const root = await mkdtemp(path.join(parent, "run-"));
   const home = path.join(root, "home");
   const xdg = path.join(root, "xdg");
   const configDir = path.join(xdg, "nones");

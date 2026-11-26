@@ -15,7 +15,15 @@ export {
   UsersApi,
 } from './api';
 export type { CardListOptions } from './api';
-export { inspectConfig, KaitenConfigError, loadConfig, loadConfigLenient, parseEnvFile } from './config';
+export {
+  inspectConfig,
+  inspectConfigFromEnv,
+  KaitenConfigError,
+  loadConfig,
+  loadConfigFromEnv,
+  loadConfigLenient,
+  parseEnvFile,
+} from './config';
 export type { ConfigSource, KaitenConfigHealth } from './interfaces';
 export { KaitenApiError, KaitenClient, KaitenDeleteDisabledError, KaitenReadOnlyError, KaitenTimeoutError } from './http';
 export type { KaitenClientOptions, QueryParams } from './http';

@@ -1,9 +1,5 @@
 import { readFile } from "node:fs/promises";
 import type {
-  JournalAdapterRef,
-  JournalSettings,
-} from "./journal";
-import type {
   LogLevel,
   ModuleConfig,
   ModulePermissions,
@@ -64,46 +60,6 @@ export function parseShared(value: unknown): SharedConfig {
     fail("config.logLevel", "must be debug, info, warn or error");
   }
   return { version: 1, modules, logLevel: logLevel as LogLevel };
-}
-
-function parseAdapter(value: unknown, at: string): JournalAdapterRef | null {
-  if (value === undefined || value === null) return null;
-  const root = asObject(value, at);
-  assertKeys(root, at, ["module", "options"]);
-  const module = asString(root.module, `${at}.module`);
-  if (!ID.test(module)) fail(`${at}.module`, "is not a valid module id");
-  return {
-    module,
-    options: optional(root.options, `${at}.options`, asObject) ?? {},
-  };
-}
-
-/** Accepts the standalone OpenCode 0.5.0 journal shape unchanged. */
-export function parseJournal(
-  value: unknown,
-  source: JournalSettings["source"],
-): JournalSettings {
-  if (value === undefined) {
-    return {
-      enabled: false,
-      capturePrompts: false,
-      sqlitePath: null,
-      adapter: null,
-      source: "default",
-    };
-  }
-  const at = "journal";
-  const root = asObject(value, at);
-  assertKeys(root, at, ["version", "enabled", "capturePrompts", "sqlitePath", "adapter"]);
-  if (root.version !== undefined && root.version !== 1) fail(`${at}.version`, "must be 1");
-  return {
-    enabled: optional(root.enabled, `${at}.enabled`, asBoolean) ?? false,
-    capturePrompts:
-      optional(root.capturePrompts, `${at}.capturePrompts`, asBoolean) ?? false,
-    sqlitePath: optional(root.sqlitePath, `${at}.sqlitePath`, asAbsolutePath) ?? null,
-    adapter: parseAdapter(root.adapter, `${at}.adapter`),
-    source,
-  };
 }
 
 function parsePermissions(value: unknown): ModulePermissions {

@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 
 const run = promisify(execFile);
 const root = path.resolve(import.meta.dir, "..");
-const PACKAGES = ["apps/core", "apps/kaiten", "apps/opencode"];
+const PACKAGES = ["apps/core", "adapters/sqlite", "apps/kaiten", "apps/opencode"];
 const failures: string[] = [];
 
 function check(condition: boolean, message: string): void {
@@ -49,14 +49,27 @@ for (const relative of PACKAGES) {
   };
   const label = pkg.name;
   check(pkg.version !== "0.0.0", `${label} must have its own version`);
-  check(pkg.engines?.node === ">=22.14", `${label} must keep node >=22.14`);
+  const expectedEngine = label === "@nones/kaiten-mcp" ? ">=18" : ">=22.14";
+  check(pkg.engines?.node === expectedEngine, `${label} must keep node ${expectedEngine}`);
+  check(pkg.files?.[0] === "dist", `${label} must publish dist first`);
   check(
-    JSON.stringify(pkg.files) === JSON.stringify(["dist", "README.md"]),
-    `${label} must publish only dist and README`,
+    (pkg.files ?? []).every((file) => file === "dist" || !file.startsWith("src")),
+    `${label} must not publish source directories`,
   );
   const entry = pkg.exports?.["."];
   check(entry?.types === "./dist/index.d.ts", `${label} needs a packed types entry`);
   check(entry?.import === "./dist/index.js", `${label} needs a packed import entry`);
+  const exportMap = pkg.exports as Record<string, { types?: string; import?: string }>;
+  if (label === "@nones/mcp-core") {
+    check(exportMap["./journal"]?.types === "./dist/journal/index.d.ts", "core needs a ./journal types entry");
+    check(exportMap["./journal"]?.import === "./dist/journal/index.js", "core needs a ./journal import entry");
+  }
+  const moduleExport = exportMap["./module"];
+  const expectsModule = label === "@nones/kaiten-mcp" || label === "@nones/opencode-mcp";
+  if (expectsModule) {
+    check(moduleExport?.types?.endsWith(".d.ts") === true, `${label} needs a ./module types entry`);
+    check(moduleExport?.import?.endsWith(".js") === true, `${label} needs a ./module import entry`);
+  }
   for (const file of ["dist/index.js", "dist/index.d.ts"]) {
     await stat(path.join(directory, file)).catch(() =>
       failures.push(`${label} is missing ${file}; run bun run build`),

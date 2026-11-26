@@ -1,5 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
-import { JournalError } from "./errors";
+import { JournalError } from "@nones/mcp-core/journal";
 
 export const SCHEMA_VERSION = 1;
 /** ASCII "OMJ1"; distinguishes this database from unrelated SQLite files. */

@@ -14,17 +14,21 @@
     "adapters/*"
   ],
   "scripts": {
-    "build": "bun run --cwd apps/core build && bun run --cwd apps/kaiten build && bun run --cwd apps/opencode build",
-    "typecheck": "bun run --cwd apps/core typecheck && bun run --cwd apps/kaiten typecheck && bun run --cwd apps/opencode typecheck",
-    "test": "bun run build && bun test",
+    "build": "bun run --cwd apps/core build && bun run --cwd adapters/sqlite build && bun run --cwd apps/kaiten build && bun run --cwd apps/opencode build",
+    "typecheck": "bun run --cwd apps/core typecheck && bun run --cwd adapters/sqlite typecheck && bun run --cwd apps/kaiten typecheck && bun run --cwd apps/opencode typecheck",
+    "test": "bun run build && bun run test:unit",
     "test:e2e": "bun test apps/core/test/e2e",
     "pack:check": "bun run scripts/pack-check.ts",
-    "verify": "bun run build && bun run typecheck && bun test && bun run pack:check"
+    "verify": "bun run build && bun run typecheck && bun run lint && bun run test:unit && bun run pack:check",
+    "test:unit": "bun run scripts/test.ts",
+    "lint": "bun run --cwd apps/kaiten lint && bun run --cwd apps/opencode lint"
   },
   "devDependencies": {
     "@types/node": "26.6.11",
     "typescript": "7.0.2",
-    "@nones/kaiten-module": "workspace:*",
-    "@nones/opencode-module": "workspace:*"
+    "@nones/mcp-core": "workspace:*",
+    "@nones/kaiten-mcp": "workspace:*",
+    "@nones/mcp-journal-sqlite": "workspace:*",
+    "@nones/opencode-mcp": "workspace:*"
   }
 }

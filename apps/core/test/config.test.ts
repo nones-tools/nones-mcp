@@ -25,43 +25,39 @@ describe("config directory resolution", () => {
   });
 });
 
-describe("legacy OpenCode 0.5.0 journal compatibility", () => {
-  test("accepts a config.json whose only key is journal", async () => {
+describe("OpenCode 0.5.0 journal compatibility", () => {
+  test("accepts the legacy top-level journal object and never opens it", async () => {
     const sandbox = await makeSandbox();
     const database = path.join(sandbox.root, "journal.sqlite");
     await sandbox.write("config.json", {
       $schema: "https://example.invalid/nones-config.schema.json",
       journal: {
         enabled: true,
-        capturePrompts: true,
+        capturePrompts: false,
         sqlitePath: database,
-        adapter: { module: "sqlite", options: { pageSize: 4096 } },
       },
     });
     const loaded = await loadConfig({ directory: sandbox.configDir, env: {} });
     expect(loaded.shared.modules).toEqual([]);
-    expect(loaded.journal).toEqual({
-      enabled: true,
-      capturePrompts: true,
-      sqlitePath: database,
-      adapter: { module: "sqlite", options: { pageSize: 4096 } },
-      source: "config.json#journal",
-    });
-    // The prototype must not open or create the journal before extraction.
+    expect(loaded.journal.enabled).toBe(true);
+    expect(loaded.journal.capturePrompts).toBe(false);
+    expect(loaded.journal.sqlitePath).toBe(database);
+    expect(loaded.journal.adapter).toBeNull();
+    expect(loaded.journal.configDirectory).toBe(sandbox.configDir);
+    // Merely loading settings must not create or open the database.
     await expect(stat(database)).rejects.toThrow();
   });
 
-  test("dedicated journal.json wins and is reported", async () => {
+  test("resolves an already installed custom adapter without downloading", async () => {
     const sandbox = await makeSandbox();
     await sandbox.write("config.json", {
-      $schema: "https://example.invalid/nones-config.schema.json",
-      journal: { enabled: true, sqlitePath: "/tmp/legacy.sqlite" },
+      journal: { adapter: { module: "@nones/mcp-journal-sqlite", options: { path: "unused.sqlite" } } },
     });
-    await sandbox.write("journal.json", { enabled: false, capturePrompts: false });
     const loaded = await loadConfig({ directory: sandbox.configDir, env: {} });
-    expect(loaded.journal.enabled).toBe(false);
-    expect(loaded.journal.source).toBe("journal.json");
-    expect(loaded.warnings.join(" ")).toContain("journal.json overrides");
+    expect(loaded.journal.adapter?.module).toBe("@nones/mcp-journal-sqlite");
+    expect(loaded.journal.adapter?.moduleUrl).toMatch(/\/dist\/index\.js$/);
+    expect(loaded.journal.sqlitePath).toBeNull();
+    expect(loaded.journal.capturePrompts).toBe(true);
   });
 });
 

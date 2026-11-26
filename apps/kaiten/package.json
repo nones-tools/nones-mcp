@@ -13,6 +13,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./module": {
+      "types": "./dist/mcp/module.d.ts",
+      "import": "./dist/mcp/module.js"
     }
   },
   "bin": {
@@ -23,7 +27,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "bun build src/index.ts src/cli/index.ts src/mcp/server.ts --outdir dist --target node --format esm --packages external --sourcemap=external && tsc -p tsconfig.build.json",
+    "build": "rm -rf dist && bun build src/index.ts src/cli/index.ts src/mcp/server.ts src/mcp/module.ts --outdir dist --target node --format esm --packages external --sourcemap=external && tsc -p tsconfig.build.json",
     "dev": "bun --watch src/mcp/server.ts",
     "dev:cli": "bun src/cli/index.ts",
     "start": "node dist/mcp/server.js",
@@ -55,14 +59,23 @@
     "@biomejs/biome": "^2.5.4",
     "@types/bun": "^1.3.14",
     "@types/node": "^26.1.1",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "@nones/mcp-core": "workspace:*"
   },
   "publishConfig": {
     "access": "public"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ZeiZel/kaiten-mcp.git"
+    "url": "git+https://github.com/nones-tools/nones-mcp.git",
+    "directory": "apps/kaiten"
   },
-  "homepage": "https://github.com/ZeiZel/kaiten-mcp#readme"
+  "peerDependencies": {
+    "@nones/mcp-core": "^0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@nones/mcp-core": {
+      "optional": true
+    }
+  }
 }

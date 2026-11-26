@@ -11,11 +11,11 @@ export interface TrustedModule {
 
 export const TRUSTED_MODULES: Readonly<Record<string, TrustedModule>> = {
   kaiten: {
-    package: "@nones/kaiten-module",
+    package: "@nones/kaiten-mcp/module",
     envPrefixes: ["KAITEN_"],
   },
   opencode: {
-    package: "@nones/opencode-module",
+    package: "@nones/opencode-mcp/module",
     envPrefixes: ["OPENCODE_"],
   },
 };

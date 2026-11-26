@@ -1,0 +1,43 @@
+{
+  "name": "@nones/mcp-journal-sqlite",
+  "version": "0.1.0",
+  "description": "SQLite journal adapter (API v1) for the @nones MCP suite",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.14"
+  },
+  "scripts": {
+    "build": "rm -rf dist && bun build src/index.ts --outdir dist --target node --format esm --packages external && tsc -p tsconfig.build.json && node ../../scripts/fix-declarations.mjs dist",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "peerDependencies": {
+    "@nones/mcp-core": "^0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@nones/mcp-core": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@nones/mcp-core": "workspace:*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nones-tools/nones-mcp.git",
+    "directory": "adapters/sqlite"
+  }
+}

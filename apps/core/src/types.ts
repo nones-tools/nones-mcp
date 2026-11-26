@@ -7,7 +7,7 @@
  */
 export const MODULE_API_VERSION = 1 as const;
 
-import type { JournalSettings } from "./journal";
+import type { JournalSettings } from "./journal/index";
 
 export type JsonSchema = Record<string, unknown>;
 

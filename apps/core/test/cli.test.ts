@@ -44,7 +44,7 @@ describe("packaged CLI execution", () => {
 
   test("doctor prints one JSON report and no MCP traffic", async () => {
     const sandbox = await makeSandbox();
-    await sandbox.write("config.json", { version: 1, modules: [], logLevel: "warn" });
+    await sandbox.write("config.json", { version: 1, modules: [], logLevel: "warn", journal: { enabled: false } });
     const result = await run(NODE, [coreBin, "doctor"], childEnvironment(sandbox, {}));
     expect(result.code).toBe(0);
     const report = JSON.parse(result.stdout) as {

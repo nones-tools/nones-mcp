@@ -31,12 +31,20 @@ async function prepare(): Promise<PackageFixture> {
   process.on("exit", () => rmSync(work, { recursive: true, force: true }));
   const packDir = path.join(work, "pack");
   mkdirSync(packDir);
-  const output = execFileSync(
-    "npm",
-    ["pack", "--json", "--pack-destination", packDir],
-    { cwd: projectRoot, encoding: "utf8" },
+  const packManifest = (directory: string) => {
+    const output = execFileSync(
+      "npm",
+      ["pack", "--json", "--pack-destination", packDir],
+      { cwd: directory, encoding: "utf8" },
+    );
+    return JSON.parse(output)[0];
+  };
+  const pack = packManifest(projectRoot);
+  // Shared runtime packages are installed from local tarballs, never the registry.
+  const corePack = packManifest(path.join(projectRoot, "..", "core"));
+  const sqlitePack = packManifest(
+    path.join(projectRoot, "..", "..", "adapters", "sqlite"),
   );
-  const pack = JSON.parse(output)[0];
   const packedFiles: string[] = pack.files.map(
     (file: { path: string }) => file.path,
   );
@@ -60,6 +68,8 @@ async function prepare(): Promise<PackageFixture> {
       "--no-fund",
       "--ignore-scripts",
       path.join(packDir, pack.filename),
+      path.join(packDir, corePack.filename),
+      path.join(packDir, sqlitePack.filename),
       "typescript@7.0.2",
       `@types/node@${nodeTypes}`,
     ],

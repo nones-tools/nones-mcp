@@ -23,6 +23,10 @@
     "./journal": {
       "types": "./dist/journal/public.d.ts",
       "import": "./dist/journal/public.js"
+    },
+    "./module": {
+      "types": "./dist/module.d.ts",
+      "import": "./dist/module.js"
     }
   },
   "files": [
@@ -34,7 +38,7 @@
     "docs/assets/banner.svg"
   ],
   "scripts": {
-    "build": "bun build src/cli.ts src/index.ts src/journal/public.ts --outdir dist --target node --format esm --packages external && tsc -p tsconfig.build.json && node scripts/fix-declaration-imports.mjs",
+    "build": "rm -rf dist && bun build src/cli.ts src/index.ts src/journal/public.ts src/module.ts --outdir dist --target node --format esm --packages external && tsc -p tsconfig.build.json && node scripts/fix-declaration-imports.mjs",
     "test": "bun test",
     "test:package": "bun test tests/package.test.ts tests/bun-package.test.ts",
     "typecheck": "tsc --noEmit",
@@ -49,7 +53,9 @@
     "@modelcontextprotocol/server": "2.4.0",
     "@opencode/client": "2.4.2",
     "commander": "15.1.0",
-    "zod": "4.6.7"
+    "zod": "4.6.7",
+    "@nones/mcp-core": "^0.1.0",
+    "@nones/mcp-journal-sqlite": "^0.1.0"
   },
   "devDependencies": {
     "@types/bun": "latest",
@@ -62,6 +68,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ZeiZel/opencode-mcp.git"
+    "url": "git+https://github.com/nones-tools/nones-mcp.git",
+    "directory": "apps/opencode"
   }
 }

@@ -1,3 +1,3 @@
 export { compose } from './chain';
-export { errorHook } from './error.hook';
-export { loggingHook } from './logging.hook';
+export { createErrorHook, errorHook } from './error.hook';
+export { createLoggingHook, loggingHook } from './logging.hook';

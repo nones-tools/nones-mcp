@@ -29,9 +29,9 @@ async function serve(): Promise<void> {
   const logger = createLogger(loaded.shared.logLevel, loaded.secrets);
   for (const warning of loaded.warnings) logger.warn(warning);
   if (loaded.journal.enabled) {
-    logger.warn("journal settings accepted but not opened before the 0.5.0 adapter extraction", {
-      source: loaded.journal.source,
-      adapter: loaded.journal.adapter?.module ?? null,
+    logger.debug("journal is configured; the aggregate server does not record operations itself", {
+      adapter: loaded.journal.adapter?.module ?? "sqlite",
+      sqlitePath: loaded.journal.sqlitePath,
     });
   }
   const host = await ModuleHost.start(loaded, logger);
@@ -65,8 +65,9 @@ async function doctor(): Promise<void> {
     })),
     journal: {
       enabled: loaded.journal.enabled,
-      source: loaded.journal.source,
-      adapter: loaded.journal.adapter?.module ?? null,
+      capturePrompts: loaded.journal.capturePrompts,
+      adapter: loaded.journal.adapter?.module ?? "sqlite",
+      sqlitePath: loaded.journal.sqlitePath,
       opened: false,
     },
     warnings: loaded.warnings,

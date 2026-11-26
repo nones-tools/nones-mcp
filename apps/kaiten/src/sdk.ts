@@ -16,6 +16,8 @@ export type { CreateCardInput, MinimalCard, MinimalParent, MinimalSubtask, Tagge
 
 export interface KaitenSDKOptions extends Partial<KaitenConfig> {
   client?: KaitenClient;
+  /** Pre-validated, module-scoped config; bypasses env/file loading when set. */
+  config?: KaitenConfig;
 }
 
 /**
