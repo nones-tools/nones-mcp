@@ -1,8 +1,15 @@
-[![OpenCode MCP — NONES](docs/assets/banner.svg)](https://www.npmjs.com/org/nones)
+[![OpenCode MCP — Nones pixel octopus banner](https://raw.githubusercontent.com/nones-tools/nones-mcp/main/apps/opencode/docs/assets/banner.png)](https://github.com/nones-tools/nones-mcp)
 
 # OpenCode MCP
 
 `@nones/opencode-mcp` is a local MCP server, Node CLI, and TypeScript SDK for an **already running** OpenCode 2 service. The compatibility target is OpenCode 2.4.1. It connects to the managed service that is already there and never starts, restarts, or replaces it. Node 22.14 or newer is required for the packaged CLI.
+
+> **Part of the Nones MCP monorepo.** The source lives in
+> [`apps/opencode`](https://github.com/nones-tools/nones-mcp/tree/main/apps/opencode),
+> next to the shared core and Kaiten MCP. Package names, both bin aliases, exports
+> and journal configuration are unchanged; see the
+> [monorepo overview](https://github.com/nones-tools/nones-mcp) and
+> [architecture](https://github.com/nones-tools/nones-mcp/blob/main/ARCHITECTURE.md).
 
 ## Quick start
 
@@ -272,4 +279,4 @@ The published declarations are self-contained per module and resolve for an exte
 
 ## Development
 
-Bun 1.4.5 is the pinned build, formatting, and test runner; the published CLI runs on Node 22.14 or newer. Run `bun install --frozen-lockfile`, `bun run format:check`, `bun run lint`, `bun run typecheck`, `bun run build`, `bun test`, and `npm pack --dry-run`. `bun run test:package` packs the tarball, installs it into a fresh consumer, checks NodeNext declarations including the journal subpath, runs the installed Node CLI and journal commands with synthetic config, checks the `oc2-mcp` alias, and launches the installed build with Bun using `--no-env-file` for a bounded stdio MCP handshake and journal read. See [CONTRIBUTING.md](CONTRIBUTING.md) for architecture and review guidance.
+Bun 1.4.5 is the pinned build, formatting, and test runner; the published CLI runs on Node 22.14 or newer. Run `bun install --frozen-lockfile`, `bun run format:check`, `bun run lint`, `bun run typecheck`, `bun run build`, `bun test`, and `npm pack --dry-run`. `bun run test:package` packs the tarball, installs it into a fresh consumer, checks NodeNext declarations including the journal subpath, runs the installed Node CLI and journal commands with synthetic config, checks the `oc2-mcp` alias, and launches the installed build with Bun using `--no-env-file` for a bounded stdio MCP handshake and journal read. See [CONTRIBUTING.md](CONTRIBUTING.md) for architecture and review guidance. Kaiten MCP and the shared monorepo core live in the [Nones MCP repository](https://github.com/nones-tools/nones-mcp).

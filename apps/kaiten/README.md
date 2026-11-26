@@ -1,3 +1,5 @@
+[![Kaiten MCP — Nones pixel octopus banner](https://raw.githubusercontent.com/nones-tools/nones-mcp/main/apps/kaiten/docs/assets/banner.png)](https://github.com/nones-tools/nones-mcp)
+
 # @nones/kaiten-mcp
 
 MCP (Model Context Protocol) server for Kaiten — lets Claude Code,
@@ -5,6 +7,13 @@ Claude Desktop, Cursor and other MCP clients manage your Kaiten boards: cards, c
 cards, comments, tags, checklists, files and card-scoped git branches. Ships as a single
 `kaiten` binary: `kaiten mcp` starts the MCP server, every other command is a regular
 CLI; a typed SDK is exported for programmatic use.
+
+> **Part of the Nones MCP monorepo.** The source lives in
+> [`apps/kaiten`](https://github.com/nones-tools/nones-mcp/tree/main/apps/kaiten),
+> next to the shared core and OpenCode MCP. Package name, `kaiten` binary, exports
+> and configuration are unchanged; see the
+> [monorepo overview](https://github.com/nones-tools/nones-mcp) and
+> [architecture](https://github.com/nones-tools/nones-mcp/blob/main/ARCHITECTURE.md).
 
 > **Migrating from v3?** The separate `kaiten-mcp` binary was removed in v4.0.0 — append
 > `mcp` to the command in your MCP config and launch it with
@@ -179,6 +188,7 @@ API token's own permissions. Full semantics, composition rules and enforcement t
 - [SDK](docs/sdk.md) — programmatic usage from Node/Bun
 - [Architecture](docs/architecture.md) — layers, Kaiten Core, design decisions
 - [Development](docs/development.md) — building, testing, releasing
+- [Monorepo](https://github.com/nones-tools/nones-mcp) — suite overview, shared core and journal
 
 ## Requirements
 
