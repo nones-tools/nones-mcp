@@ -104,7 +104,7 @@ test("the installed Node CLI runs from the packed tarball", () => {
   const version = execFileSync("node", [cli, "--version"], {
     encoding: "utf8",
   });
-  expect(version.trim()).toBe("0.3.0");
+  expect(version.trim()).toBe("0.4.0");
   const output = execFileSync("node", [cli, "help"], { encoding: "utf8" });
   expect(output).toContain("Usage: opencode-mcp");
   expect(output).toContain("start");
@@ -122,7 +122,7 @@ test("the oc2-mcp alias points at the same installed CLI", () => {
   const alias = path.join(fixture.consumer, "node_modules", ".bin", "oc2-mcp");
   expect(existsSync(alias)).toBe(true);
   expect(execFileSync(alias, ["--version"], { encoding: "utf8" }).trim()).toBe(
-    "0.3.0",
+    "0.4.0",
   );
 });
 

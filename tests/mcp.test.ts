@@ -64,7 +64,7 @@ test("Node stdio MCP initializes with version and pretty parity", async () => {
   const initialize = messages.find((message) => message.id === 1);
   expect(initialize?.result.serverInfo).toMatchObject({
     name: "opencode-mcp",
-    version: "0.3.0",
+    version: "0.4.0",
   });
 
   const list = messages.find((message) => message.id === 2);
@@ -95,7 +95,7 @@ test("the default launch without arguments serves MCP over stdio", async () => {
   const initialize = messages.find((message) => message.id === 1);
   expect(initialize?.result.serverInfo).toMatchObject({
     name: "opencode-mcp",
-    version: "0.3.0",
+    version: "0.4.0",
   });
 
   const list = messages.find((message) => message.id === 2);

@@ -19,7 +19,7 @@ test("the installed build runs under Bun with a bounded MCP handshake", async ()
   const version = execFileSync(bun, ["--no-env-file", cli, "--version"], {
     encoding: "utf8",
   });
-  expect(version.trim()).toBe("0.3.0");
+  expect(version.trim()).toBe("0.4.0");
 
   const child = startCli(
     [],
@@ -49,7 +49,7 @@ test("the installed build runs under Bun with a bounded MCP handshake", async ()
   child.kill();
   expect(
     messages.find((message) => message.id === 1)?.result.serverInfo.version,
-  ).toBe("0.3.0");
+  ).toBe("0.4.0");
   expect(
     JSON.stringify(messages.find((message) => message.id === 2)?.result),
   ).toContain("opencode_server_info");

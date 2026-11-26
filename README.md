@@ -8,11 +8,12 @@
 
 ```sh
 npm install -g @nones/opencode-mcp
+opencode-mcp server start
 opencode-mcp doctor
 opencode-mcp start -C . -f prompt.txt
 ```
 
-The npm package installs two equivalent bin names, `opencode-mcp` and `oc2-mcp`, both pointing at the same `dist/cli.js`. `opencode-mcp mcp` runs the stdio MCP server and is the default when no command is given. `doctor` reads `server.info` and prints indented JSON without credentials. `help`, `--help`, `-h`, `--version`, and `-V` work without an OpenCode connection.
+The npm package installs two equivalent bin names, `opencode-mcp` and `oc2-mcp`, both pointing at the same `dist/cli.js`. `opencode-mcp mcp` runs the stdio MCP server and is the default when no command is given. `server start [--timeout <seconds>] [--opencode-bin <path>]` reuses a ready managed service or launches `opencode2 service start`, proves a real MCP handshake, and never restarts, stops, or replaces a service; `mcp` and `doctor` never auto-start. `doctor` reads `server.info` and prints indented JSON without credentials. `help`, `--help`, `-h`, `--version`, and `-V` work without an OpenCode connection.
 
 ## Session CLI
 

@@ -1,10 +1,18 @@
 #!/usr/bin/env node
+import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError } from "commander";
-import { reportFailures, runCommand, runDoctor, runMcp } from "./commands";
+import {
+  reportFailures,
+  runCommand,
+  runDoctor,
+  runMcp,
+  runServerStart,
+} from "./commands";
 import { runMonitorCommand } from "./monitor-cli";
 import { runRun } from "./run-session";
 import { runMessages, runSessions, runStatus } from "./session-read";
 import { runSend, runStart } from "./session-start";
+import { DEFAULT_SERVICE_TIMEOUT_SECONDS } from "./service-start";
 import { version } from "./version";
 
 function limitValue(value: string): number {
@@ -21,6 +29,7 @@ function secondsValue(value: string): number {
   return seconds;
 }
 
+const cliPath = fileURLToPath(import.meta.url);
 const program = new Command()
   .name("opencode-mcp")
   .description(
@@ -45,6 +54,34 @@ program
     "\nPrints indented JSON with healthy, info, and operations; credentials are never included.\nExample:\n  $ opencode-mcp doctor",
   )
   .action(() => reportFailures(runDoctor));
+
+const server = program
+  .command("server")
+  .description("manage the OpenCode background service");
+
+server
+  .command("start")
+  .description("reuse or start the managed service and prove MCP readiness")
+  .option(
+    "--timeout <seconds>",
+    "overall startup timeout in seconds",
+    secondsValue,
+    DEFAULT_SERVICE_TIMEOUT_SECONDS,
+  )
+  .option("--opencode-bin <path>", "opencode2 executable to use")
+  .addHelpText(
+    "after",
+    "\nReuses a ready managed service; otherwise launches the native `opencode2 service start`. Explicit OPENCODE_MCP_URL or OPENCODE_MCP_SERVICE_FILE is observed and never spawned. Never restarts, stops, or replaces a service. `mcp` and `doctor` still never auto-start.\nExit codes: 0 ready, 1 failure, 124 timeout, 130 canceled by signal.\nExamples:\n  $ opencode-mcp server start\n  $ oc2-mcp server start --timeout 60 --opencode-bin /usr/local/bin/opencode2",
+  )
+  .action((options) =>
+    reportFailures(() =>
+      runServerStart({
+        cliPath,
+        timeoutSeconds: options.timeout,
+        opencodeBin: options.opencodeBin,
+      }),
+    ),
+  );
 
 program
   .command("start")

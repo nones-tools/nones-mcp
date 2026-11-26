@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0
+
+Managed service startup release; existing `mcp`, `doctor`, session, and SDK behavior is preserved.
+
+- Added `server start [--timeout <seconds>] [--opencode-bin <path>]`. It reuses a ready managed service, otherwise launches the documented native `opencode2 service start` command via argv with no shell, and never restarts, stops, or replaces a service.
+- Added real readiness proof through a short-lived packaged-CLI `mcp` child: MCP initialize, `tools/list` containing `opencode_server_info`, and a required non-error `tools/call`. Bun launches use `--no-env-file`.
+- Added one overall deadline for readiness, launcher, retries, and child cleanup; bounded output; native locking for concurrent startup; SIGINT cancellation without stopping a daemon; and sanitized errors for missing executables, native failures, and MCP timeouts.
+- Added timeout exit code `124` and signal exit code `130` to `reportFailures`; `mcp` and `doctor` remain observe-only and never auto-start.
+- Pinned `@modelcontextprotocol/client` 2.4.0 for the official stdio transport and added focused tests for reuse, delayed native readiness, explicit endpoints, missing binaries, nonzero exits, timeouts, probe child cleanup, and a real subprocess MCP handshake.
+
 ## 0.3.0
 
 Session-control release; the MCP transport, tool schemas, and SDK API are unchanged.

@@ -66,7 +66,7 @@ test("version flags report the package version", async () => {
       startCli(args, { OPENCODE_MCP_URL: unavailable }),
     );
     expect(result.code).toBe(0);
-    expect(result.stdout.trim()).toBe("0.3.0");
+    expect(result.stdout.trim()).toBe("0.4.0");
     expect(result.stderr).toBe("");
   }
 }, 15000);
