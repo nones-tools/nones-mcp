@@ -1,8 +1,8 @@
 {
   "name": "@nones/opencode-mcp",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "type": "module",
-  "description": "MCP server and SDK for an existing OpenCode service",
+  "description": "MCP server, session CLI, and SDK for an existing OpenCode service",
   "license": "MIT",
   "author": "ZeiZel <valera2003lvov@yandex.ru>",
   "packageManager": "bun@1.4.5",
@@ -10,7 +10,8 @@
     "node": ">=22.14"
   },
   "bin": {
-    "opencode-mcp": "./dist/cli.js"
+    "opencode-mcp": "./dist/cli.js",
+    "oc2-mcp": "./dist/cli.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -31,7 +32,7 @@
   "scripts": {
     "build": "bun build src/cli.ts src/index.ts --outdir dist --target node --format esm --packages external && tsc -p tsconfig.build.json && node scripts/fix-declaration-imports.mjs",
     "test": "bun test",
-    "test:package": "bun test tests/package.test.ts",
+    "test:package": "bun test tests/package.test.ts tests/bun-package.test.ts",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint --deny-warnings src tests scripts",
     "format": "bun fmt",

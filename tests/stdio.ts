@@ -2,16 +2,27 @@ import { spawn } from "node:child_process";
 
 const timeoutMs = 5000;
 
+export interface CliLaunchOptions {
+  executable?: string;
+  prefix?: string[];
+  cli?: string;
+}
+
 export function startCli(
   args: string | string[] = [],
   env: Environment = {},
+  options: CliLaunchOptions = {},
 ): ReturnType<typeof spawn> {
-  const cli = process.env.OPENCODE_MCP_TEST_CLI || "dist/cli.js";
+  const cli = options.cli || process.env.OPENCODE_MCP_TEST_CLI || "dist/cli.js";
   const extra = Array.isArray(args) ? args : [args];
-  return spawn("node", [cli, ...extra], {
-    env: { ...process.env, ...env },
-    stdio: ["pipe", "pipe", "pipe"],
-  });
+  return spawn(
+    options.executable ?? "node",
+    [...(options.prefix ?? []), cli, ...extra],
+    {
+      env: { ...process.env, ...env },
+      stdio: ["pipe", "pipe", "pipe"],
+    },
+  );
 }
 
 export function waitForMessages(
@@ -54,6 +65,7 @@ export function waitForMessages(
 
 export function waitForExit(
   child: ReturnType<typeof spawn>,
+  ms = timeoutMs,
 ): Promise<{ code: number | null; stdout: string; stderr: string }> {
   let stdout = "";
   let stderr = "";
@@ -63,7 +75,7 @@ export function waitForExit(
     const timer = setTimeout(() => {
       child.kill();
       reject(new Error("CLI child timed out"));
-    }, timeoutMs);
+    }, ms);
     child.on("error", (error) => {
       clearTimeout(timer);
       reject(error);

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.0
+
+Session-control release; the MCP transport, tool schemas, and SDK API are unchanged.
+
+- Added `start`, `send`, `status`, `messages`, `sessions`, `monitor`/`watch`, and `run` to the globally installed CLI. They use the existing running OpenCode service, `OpenCodeClient`, native `ses_...` IDs, and native operations; there is no local job store, SQLite, Python dependency, or generated monitor.
+- `start` validates the prompt, directory, and model before creation, creates the session, delivers with native steer, and prints the session ID plus admission receipt without waiting. Model resolution is `--model`, `OPENCODE_MCP_MODEL`, legacy `OC2_MODEL`, then `opencode-go/deepseek-v4.1-flash`; unknown models and variants fail without fallback, a fresh directory outside scoped mode falls back to the global native catalogue, and a failed submission keeps the created session ID in diagnostics.
+- `send` submits immediately to the same session with steer (default) or queue and never creates or forks a session. `status`, `messages`, and `sessions` print readable native JSON with bounded limits and cursors.
+- `monitor` emits newline-delimited JSON with initial status, filtered native events, and normalized turn-start, steer-delivered, tool-completed, idle, success, failure, and timeout events. It uses short bounded live reads plus `session.get` reconciliation, deduplicates terminal events, bounds cancellation and retries, and separates stream and snapshot failures.
+- Monitor exit codes are 0 success, 2 failed/interrupted in until-turn mode, 124 timeout, and 130 signal; Ctrl+C never interrupts the native session. Follow mode keeps observing after a failed turn. `run` composes start and until-turn monitoring with a pre-prompt baseline for fast turns.
+- Added the `oc2-mcp` bin alias pointing at the same `dist/cli.js` and documented session IDs versus legacy job IDs, monitor gap reconciliation, exit codes, model resolution, and managed service dependency.
+- Admitted native `model.list` in scoped mode only with an explicit `query.location.directory` inside `OPENCODE_MCP_ALLOWED_DIRS`.
+- Added focused Node CLI tests against a controlled service stub for start receipts, immediate steer, scoped model discovery, monitor busy/idle attach, terminal failure, timeout, signal, follow mode, and fast `run` completion, plus package checks for the alias and a Bun `--no-env-file` installed-build handshake.
+
 ## 0.2.1
 
 CLI and packaging release; MCP transport, tool schemas, and the public SDK API are unchanged.

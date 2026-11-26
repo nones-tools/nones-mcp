@@ -1,77 +1,33 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { packageFixture, type PackageFixture } from "./package-fixture";
+import { startSessionStub } from "./session-stub";
 
-const projectRoot = path.resolve(import.meta.dir, "..");
-let work: string;
-let consumer: string;
-let packageDir: string;
-let packedFiles: string[];
+let fixture: PackageFixture;
+let mcpStub: ReturnType<typeof startSessionStub>;
 
-beforeAll(() => {
-  work = mkdtempSync(path.join(tmpdir(), "opencode-mcp-package-"));
-  const packDir = path.join(work, "pack");
-  mkdirSync(packDir);
-  const output = execFileSync(
-    "npm",
-    ["pack", "--json", "--pack-destination", packDir],
-    { cwd: projectRoot, encoding: "utf8" },
-  );
-  const pack = JSON.parse(output)[0];
-  packedFiles = pack.files.map((file: { path: string }) => file.path);
-  const nodeTypes = JSON.parse(
-    readFileSync(
-      path.join(projectRoot, "node_modules", "@types", "node", "package.json"),
-      "utf8",
-    ),
-  ).version;
-
-  consumer = path.join(work, "consumer");
-  mkdirSync(consumer);
-  writeFileSync(
-    path.join(consumer, "package.json"),
-    JSON.stringify({ name: "consumer", private: true, type: "module" }),
-  );
-  execFileSync(
-    "npm",
-    [
-      "install",
-      "--no-audit",
-      "--no-fund",
-      "--ignore-scripts",
-      path.join(packDir, pack.filename),
-      "typescript@7.0.2",
-      `@types/node@${nodeTypes}`,
-    ],
-    { cwd: consumer, stdio: "pipe" },
-  );
-  packageDir = path.join(consumer, "node_modules", "@nones", "opencode-mcp");
+beforeAll(async () => {
+  fixture = await packageFixture();
+  mcpStub = startSessionStub();
 }, 180_000);
 
-afterAll(() => {
-  if (work) rmSync(work, { recursive: true, force: true });
-});
+afterAll(() => mcpStub?.server.stop(true));
 
 test("the published tarball contains the CLI, SDK, and declarations", () => {
-  expect(packedFiles).toContain("dist/cli.js");
-  expect(packedFiles).toContain("dist/index.js");
-  expect(packedFiles).toContain("dist/index.d.ts");
-  expect(packedFiles).toContain("dist/types.d.ts");
-  expect(packedFiles).not.toContain("src/index.ts");
-  expect(packedFiles).not.toContain("scripts/fix-declaration-imports.mjs");
+  expect(fixture.packedFiles).toContain("dist/cli.js");
+  expect(fixture.packedFiles).toContain("dist/index.js");
+  expect(fixture.packedFiles).toContain("dist/index.d.ts");
+  expect(fixture.packedFiles).toContain("dist/types.d.ts");
+  expect(fixture.packedFiles).not.toContain("src/index.ts");
+  expect(fixture.packedFiles).not.toContain(
+    "scripts/fix-declaration-imports.mjs",
+  );
 });
 
 test("declarations use resolvable NodeNext relative specifiers", () => {
-  const dist = path.join(packageDir, "dist");
+  const dist = path.join(fixture.packageDir, "dist");
   let count = 0;
   for (const file of readdirSync(dist).filter((name) =>
     name.endsWith(".d.ts"),
@@ -90,7 +46,7 @@ test("declarations use resolvable NodeNext relative specifiers", () => {
 
 test("an external NodeNext TypeScript consumer resolves the SDK", () => {
   writeFileSync(
-    path.join(consumer, "tsconfig.json"),
+    path.join(fixture.consumer, "tsconfig.json"),
     JSON.stringify({
       compilerOptions: {
         target: "ES2022",
@@ -105,7 +61,7 @@ test("an external NodeNext TypeScript consumer resolves the SDK", () => {
     }),
   );
   writeFileSync(
-    path.join(consumer, "index.ts"),
+    path.join(fixture.consumer, "index.ts"),
     `import {
   OpenCodeClient,
   classify,
@@ -135,23 +91,39 @@ export { category, clean, connect, env, grouped, request, serve };
   execFileSync(
     "node",
     [
-      path.join(consumer, "node_modules", "typescript", "bin", "tsc"),
+      path.join(fixture.consumer, "node_modules", "typescript", "bin", "tsc"),
       "-p",
-      path.join(consumer, "tsconfig.json"),
+      path.join(fixture.consumer, "tsconfig.json"),
     ],
-    { cwd: consumer, stdio: "pipe" },
+    { cwd: fixture.consumer, stdio: "pipe" },
   );
 });
 
 test("the installed Node CLI runs from the packed tarball", () => {
-  const cli = path.join(packageDir, "dist", "cli.js");
+  const cli = path.join(fixture.packageDir, "dist", "cli.js");
   const version = execFileSync("node", [cli, "--version"], {
     encoding: "utf8",
   });
-  expect(version.trim()).toBe("0.2.1");
+  expect(version.trim()).toBe("0.3.0");
   const output = execFileSync("node", [cli, "help"], { encoding: "utf8" });
   expect(output).toContain("Usage: opencode-mcp");
+  expect(output).toContain("start");
   expect(output).toContain("doctor");
+});
+
+test("the oc2-mcp alias points at the same installed CLI", () => {
+  const manifest = JSON.parse(
+    readFileSync(path.join(fixture.packageDir, "package.json"), "utf8"),
+  );
+  expect(manifest.bin).toEqual({
+    "opencode-mcp": "./dist/cli.js",
+    "oc2-mcp": "./dist/cli.js",
+  });
+  const alias = path.join(fixture.consumer, "node_modules", ".bin", "oc2-mcp");
+  expect(existsSync(alias)).toBe(true);
+  expect(execFileSync(alias, ["--version"], { encoding: "utf8" }).trim()).toBe(
+    "0.3.0",
+  );
 });
 
 test("the installed SDK loads under Node", () => {
@@ -162,7 +134,7 @@ test("the installed SDK loads under Node", () => {
       "-e",
       "import('@nones/opencode-mcp').then((sdk) => console.log(typeof sdk.createServer))",
     ],
-    { cwd: consumer, encoding: "utf8" },
+    { cwd: fixture.consumer, encoding: "utf8" },
   );
   expect(output.trim()).toBe("function");
 });

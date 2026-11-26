@@ -24,14 +24,24 @@ export async function runDoctor(): Promise<void> {
   );
 }
 
-/** Keep runtime failures on stderr and exit nonzero without touching stdout. */
-export async function reportFailures(run: () => Promise<void>): Promise<void> {
+/**
+ * Run one command, keep runtime failures on stderr with a nonzero exit, and
+ * honor explicit exit codes such as monitor timeout (124) or signal (130).
+ */
+export async function runCommand(
+  run: () => MaybePromise<number | void>,
+): Promise<void> {
   try {
-    await run();
+    const code = await run();
+    if (typeof code === "number") process.exitCode = code;
   } catch (error) {
     console.error(
-      error instanceof Error ? error.message : "OpenCode initialization failed",
+      error instanceof Error ? error.message : "OpenCode command failed",
     );
     process.exitCode = 1;
   }
+}
+
+export async function reportFailures(run: () => Promise<void>): Promise<void> {
+  await runCommand(run);
 }

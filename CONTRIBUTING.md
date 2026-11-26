@@ -16,27 +16,32 @@ bun test
 npm pack --dry-run
 ```
 
-Run one test file with `bun test tests/client.test.ts` or `bun test tests/mcp.test.ts`. The Node stdio tests in `tests/mcp.test.ts` and `tests/cli.test.ts` spawn `dist/cli.js` by default, so build before the full suite. Set `OPENCODE_MCP_TEST_CLI` to point those tests at another built CLI. `tests/package.test.ts` packs the tarball, installs it into a fresh Node consumer, compiles a strict `NodeNext` fixture with `skipLibCheck: false`, and runs the installed CLI with Node; it also needs a completed build.
+Run one test file with `bun test tests/client.test.ts` or `bun test tests/mcp.test.ts`. The Node stdio tests in `tests/mcp.test.ts` and `tests/cli.test.ts` spawn `dist/cli.js` by default, so build before the full suite. Set `OPENCODE_MCP_TEST_CLI` to point those tests at another built CLI. `tests/package.test.ts` packs the tarball, installs it into a fresh Node consumer, compiles a strict `NodeNext` fixture with `skipLibCheck: false`, and runs the installed CLI with Node; `tests/bun-package.test.ts` reuses the same fixture and launches the installed build with Bun using `--no-env-file` for a bounded stdio MCP handshake. Both need a completed build.
 
 ## Architecture
 
 The source is split by responsibility under `src/`:
 
-| Area                                     | Responsibility                                                                           |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `cli.ts` and `config.ts`                 | CLI commands, service discovery, endpoint validation, timeouts, and allowed directories. |
-| `catalog.ts`                             | Native `/openapi.json` operation discovery and filtering of unsafe routes.               |
-| `http.ts`, `params.ts`, `json.ts`        | Bounded requests, route and query encoding, and JSON response handling.                  |
-| `scope.ts` and `security.ts`             | Workspace checks, capability gates, operation classification, and credential stripping.  |
-| `events.ts` and `history.ts`             | Bounded event reads and grouping of native messages by user prompt.                      |
-| `server.ts`                              | MCP tool registration, including dynamic tools for native operations.                    |
-| `index.ts` and `types.ts`                | Public SDK exports and interface-shaped request/operation types.                         |
-| `globals.d.ts`                           | Ambient internal utility types shared by source and tests; never part of the public SDK. |
-| `tests/client.test.ts`, `tests/stub.ts`  | Client routing, gate, and event tests against the local stub OpenCode service.           |
-| `tests/mcp.test.ts`, `tests/cli.test.ts` | Node stdio MCP handshake and `doctor` CLI checks against a built CLI.                    |
-| `tests/package.test.ts`                  | Tarball contents, installed Node CLI, and strict NodeNext consumer declarations.         |
-| `scripts/fix-declaration-imports.mjs`    | Adds NodeNext-compatible `.js` extensions to emitted declaration imports.                |
-| `docs/SPECIFICATION.md`                  | Product, compatibility, and safety contract.                                             |
+| Area                                          | Responsibility                                                                           |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `cli.ts` and `config.ts`                      | CLI commands, service discovery, endpoint validation, timeouts, and allowed directories. |
+| `session-start.ts`, `session-read.ts`         | Start/send receipts and native status, message, and session projections.                 |
+| `session-model.ts`, `prompt.ts`               | Model parsing/validation and bounded prompt input.                                       |
+| `monitor.ts`, `monitor-state.ts`              | Bounded SSE reads, session.get reconciliation, turn state, and exit codes.               |
+| `monitor-events.ts`, `monitor-cli.ts`         | Native-to-normalized events and signal-safe observation.                                 |
+| `catalog.ts`                                  | Native `/openapi.json` operation discovery and filtering of unsafe routes.               |
+| `http.ts`, `params.ts`, `json.ts`             | Bounded requests, route and query encoding, and JSON response handling.                  |
+| `scope.ts` and `security.ts`                  | Workspace checks, capability gates, operation classification, and credential stripping.  |
+| `events.ts` and `history.ts`                  | Bounded event reads and grouping of native messages by user prompt.                      |
+| `server.ts`                                   | MCP tool registration, including dynamic tools for native operations.                    |
+| `index.ts` and `types.ts`                     | Public SDK exports and interface-shaped request/operation types.                         |
+| `globals.d.ts`                                | Ambient internal utility types shared by source and tests; never part of the public SDK. |
+| `tests/client.test.ts`, `tests/stub.ts`       | Client routing, gate, and event tests against the local stub OpenCode service.           |
+| `tests/session-*.ts`, `tests/monitor.test.ts` | Session CLI and monitor behavior against a controlled session stub.                      |
+| `tests/mcp.test.ts`, `tests/cli.test.ts`      | Node stdio MCP handshake and `doctor` CLI checks against a built CLI.                    |
+| `tests/package.test.ts`                       | Tarball contents, installed Node CLI, and strict NodeNext consumer declarations.         |
+| `scripts/fix-declaration-imports.mjs`         | Adds NodeNext-compatible `.js` extensions to emitted declaration imports.                |
+| `docs/SPECIFICATION.md`                       | Product, compatibility, and safety contract.                                             |
 
 Request flow: the CLI resolves a connection, loads the native operation catalog, and registers MCP tools. Each call resolves path and query parameters, applies workspace scope and capability checks, makes one bounded request, sanitizes the result, and returns a native payload or an explicit error. History and events use the same client path so gates and scope are not bypassed.
 

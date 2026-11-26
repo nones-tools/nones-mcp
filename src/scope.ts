@@ -10,6 +10,7 @@ const unscopedAny = [
   "project.list",
   "session.create",
   "server.info",
+  "model.list",
 ];
 
 export class WorkspaceScope {
@@ -28,6 +29,14 @@ export class WorkspaceScope {
     signal?: AbortSignal,
   ): Promise<void> {
     const sessionID = input.path?.sessionID;
+    if (op.id === "model.list") {
+      const location = input.query?.location as
+        { directory?: unknown } | undefined;
+      if (!(await this.isAllowed(location?.directory)))
+        throw new Error(
+          "Workspace scope cannot be verified for model discovery",
+        );
+    }
     if (op.id === "session.create") {
       const body = input.body as
         { location?: { directory?: unknown }; parentID?: unknown } | undefined;

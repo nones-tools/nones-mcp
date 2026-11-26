@@ -32,6 +32,8 @@ test("help aliases list both commands without a service", async () => {
     expect(result.stdout).toContain("Usage: opencode-mcp");
     expect(result.stdout).toContain("mcp");
     expect(result.stdout).toContain("doctor");
+    expect(result.stdout).toContain("start");
+    expect(result.stdout).toContain("monitor");
     expect(result.stderr).toBe("");
   }
 }, 15000);
@@ -41,6 +43,12 @@ test("command help explains each command", async () => {
     { args: ["help", "doctor"], text: "check the OpenCode connection" },
     { args: ["doctor", "--help"], text: "credentials are never included" },
     { args: ["mcp", "--help"], text: "stdout carries JSON-RPC messages only" },
+    { args: ["help", "start"], text: "opencode-mcp start -C" },
+    { args: ["send", "--help"], text: "does not wait for a turn" },
+    { args: ["monitor", "--help"], text: "Exit codes: 0 success" },
+    { args: ["watch", "--help"], text: "newline-delimited JSON" },
+    { args: ["run", "--help"], text: "started line" },
+    { args: ["sessions", "--help"], text: "sessions --limit" },
   ];
   for (const { args, text } of cases) {
     const result = await waitForExit(
@@ -58,7 +66,7 @@ test("version flags report the package version", async () => {
       startCli(args, { OPENCODE_MCP_URL: unavailable }),
     );
     expect(result.code).toBe(0);
-    expect(result.stdout.trim()).toBe("0.2.1");
+    expect(result.stdout.trim()).toBe("0.3.0");
     expect(result.stderr).toBe("");
   }
 }, 15000);
