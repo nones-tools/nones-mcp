@@ -1,21 +1,21 @@
-# Architecture and source migration
+# Architecture
 
-Repository: `github.com/nones-tools/nones-mcp`. Status: source migration branch
-`task/source-integration`; local changes only, no publishes, no remote writes.
+Repository: `github.com/nones-tools/nones-mcp`. The workspace is a coordinated
+5.0.0 release; local changes do not publish or write to remotes.
 
 ## 1. Layout
 
 | Path | Package | Version | Role |
 | --- | --- | --- | --- |
-| `apps/core` | `@nones/mcp-core` | 0.1.0 | Single stdio entry `nones-mcp` |
-| `apps/kaiten` | `@nones/kaiten-mcp` | 4.3.0 | Imported source + `./module` export |
-| `apps/opencode` | `@nones/opencode-mcp` | 0.5.0 | Imported source + `./module` export + journal CLI |
-| `adapters/sqlite` | `@nones/mcp-journal-sqlite` | 0.1.0 | Journal adapter API v1 (SQLite) |
+| `apps/core` | `@nones/mcp-core` | 5.0.0 | Shared action registry, stdio entry `nones-mcp`, journal orchestration |
+| `apps/kaiten` | `@nones/kaiten-mcp` | 5.0.0 | Kaiten MCP server, `kaiten` CLI and SDK; `./module` export |
+| `apps/opencode` | `@nones/opencode-mcp` | 5.0.0 | OpenCode MCP server, CLI and SDK; `./module` export |
+| `adapters/journal` | `@nones/journal` | 5.0.0 | Journal adapter collection; SQLite at `@nones/journal/sqlite` |
 | `compat/*` | — | — | Historical wrappers, not workspaces |
 
-Bun 1.4.5 workspace (`apps/*`, `adapters/*`) with one root `bun.lock`.
-Public package names, bins (`kaiten`, `opencode-mcp`, `oc2-mcp`), exports and
-independent versions are preserved. Standalone CLIs remain usable.
+Bun 1.4.5 workspace (`apps/*`, `adapters/*`) with one root `bun.lock`. Public
+package names, bins (`kaiten`, `opencode-mcp`, `oc2-mcp`), exports and the
+coordinated version are checked by `scripts/release/`.
 
 ## 2. Source-owned modules
 
@@ -29,12 +29,13 @@ I/O; version/config/service resolution happens in `start()` or on first call.
   config is loaded from the module env; credentials stay lazy; `process.env`
   is never mutated. Permissions: `destructive` only, fail-closed.
 - **OpenCode**: `src/module.ts` connects with the scoped `OPENCODE_*` env,
-  builds the native `McpServer` and bridges it in-process via core's
-  `InMemoryForwarder`. Discovery, model selection, permission guards, events,
-  steer and result shapes keep their original code. Permission flags are
-  forced on/off from module config; env is a copy.
-- Core shares the contract (`ToolModule` API v1), forwarding, lifecycle and
-  in-memory seam. Adapters own host resolution and scoped config only.
+  builds the native server and bridges it in-process through core. Discovery,
+  model selection, permission guards, events, steer and result shapes keep
+  their original code. Permission flags are forced on/off from module config;
+  env is a copy.
+- Core shares the contract (`ToolModule` API v1), forwarding, lifecycle,
+  `ActionRegistry` surface and journaling. Adapters own host resolution and
+  scoped config only.
 
 No child process is spawned for either module. E2E tests prove the aggregated
 `tools/list` is deep-equal to each app's standalone server output.
@@ -54,85 +55,76 @@ Resolved directory: `NONES_CONFIG_DIR` → `XDG_CONFIG_HOME/nones` →
 - Permissions default to all-false and cannot be set in shared config.
 - Unknown keys fail closed. Module configs are never merged.
 
-## 4. Journal extraction
+## 4. Journal
 
-The 0.5.0 contract, config resolution, validation, policy, loader and read
-helpers now live in `apps/core/src/journal/` (API v1: `record/query/stats/close`).
-The SQLite database implementation lives in `adapters/sqlite` and keeps the
-0.5.0 schema (`journal_entries`, `application_id` `OMJ1`, `user_version` 1),
-file permissions, cursor format and default path
-(`XDG_STATE_HOME/nones/journal.sqlite`).
+Core owns the complete journal contract and lifecycle in
+`apps/core/src/journal/` (API v1: `record/query/stats/close`). The SQLite
+implementation is the built-in plugin in `adapters/journal/src/sqlite/`,
+published as `@nones/journal/sqlite`; core imports it dynamically and reports a
+clear error when the adapter is not installed. The retired
+`@nones/mcp-journal-sqlite` name is accepted only as a narrow config alias.
 
-- Existing `~/.config/nones/config.json` `journal` keys are readable:
-  `enabled`, `capturePrompts`, `sqlitePath`, `adapter: {module, options}`.
-- `adapter.module` may be an absolute/relative/`~`/`file:` path or an already
-  installed package name (resolved with `import.meta.resolve`); nothing is
-  downloaded. A path is never required by tests.
-- `capturePrompts: false` strips prompts before the adapter sees a record;
-  list reads omit prompts unless `includePrompts` is set.
-- Operation names and CLI capture stay in OpenCode (`opencode.session.*`,
-  `opencode.service.start`). Core does not invent operations.
-- Core's aggregate server loads/validates journal settings but does not record
-  MCP tool calls; journaling is still CLI-driven.
-- `@nones/mcp-journal-sqlite` is optional for core (dynamic import, clear error
-  when absent) and a normal dependency of OpenCode.
+Every surface records at one boundary:
 
-## 5. Verified checks
+- MCP tools/call: `<integration>.mcp.<frozen tool name>`, exactly once per call.
+- CLI actions: `<integration>.cli.<command>`, or the preserved
+  `opencode.session.*` / `opencode.service.start` IDs.
+- Help, version, `mcp`, `journal` reads and app-owned readiness probes are
+  excluded. The OpenCode readiness child sets core's explicit
+  `NONES_MCP_JOURNAL_SUPPRESS=1` opt-out; normal MCP processes never do.
+
+Records contain metadata only: ID, UTC time, operation, outcome, duration and
+optional native session/message IDs. Arguments, tool results, error bodies and
+stdout are never stored. An authorized prompt is stored only for
+`opencode.session.start|send|run`, and only while `capturePrompts` is true;
+list reads omit prompts unless `--include-prompts` is passed. `capturePrompts:
+false` strips prompts in core before any adapter, including a custom one, sees
+the record.
+
+Config compatibility (`enabled`, `capturePrompts`, `sqlitePath`,
+`adapter: {module, options}`), the 0.5.0 schema (`journal_entries`,
+`application_id` `OMJ1`, `user_version` 1), file permissions, cursor format and
+default path (`XDG_STATE_HOME/nones/journal.sqlite`) are preserved. Custom
+adapters receive their configured JSON `options`; packages are resolved, never
+downloaded.
+
+## 5. Release
+
+One root tag `vX.Y.Z` releases all four packages from one commit in dependency
+order: core, journal, kaiten, opencode. Root scripts expose the same tool:
+
+```sh
+bun install --frozen-lockfile
+bun run release:version -- 5.0.0 --write
+bun run verify
+bun run release:test
+```
+
+`version` synchronizes root plus all four workspace versions, pins every
+internal `@nones/*` dependency to the exact release version and updates the
+root lock. `pack`/`publish` validate the tag, commit, checksums, declarations
+and install smoke. See [docs/release.md](docs/release.md).
+
+## 6. Verified checks
 
 ```
 bun install --frozen-lockfile
 bun run verify   # build → typecheck → lint → tests → pack:check
+node --test scripts/release.test.mjs
 ```
 
-- Core: 32 tests (config separation, legacy journal keys, installed custom
-  adapter, built-in SQLite round-trip/reopen, prompt exclusion, duplicate tools,
-  discovery parity for both apps, errors, cancellation, Node/Bun CLI, stdout).
-- Kaiten: 438 tests (imported suite + module contract, scoped env, fail-closed
-  DELETE permission, optional taskSupport).
-- OpenCode: 102 tests (imported suite + source module discovery/call/close).
-- SQLite adapter: 2 tests (schema identity, idempotent record, reopen).
-- `pack:check` dry-runs every package, requires `./module` where applicable,
-  resolves packed declarations and rejects `src/` in tarballs.
+`pack:check` dry-runs every package, requires `./module` where applicable,
+resolves packed declarations and rejects `src/` in tarballs. The release suite
+uses synthetic manifests and mocked npm interactions.
 
-## 6. Known limits
+## 7. Known limits
 
 - Async MCP tasks are not proxied: `taskSupport` is discovery metadata only and
   a `task` parameter is not forwarded.
 - `tools.listChanged` stays `false` in the aggregate; resources/prompts are not
   aggregated.
-- Journaling is not applied to OpenCode MCP tool calls (only existing CLI
-  operations), matching 0.5.0.
 - Kaiten `permissions.admin`/`exec` and module `options` are rejected.
 - Kaiten keeps Node `>=18`; core, OpenCode, the adapter and the root require
-  Node `>=22.14` (node:sqlite).
-
-## 7. Local cutover (not applied)
-
-Keep legacy MCP entries in place, add one stdio entry named `nones-mcp`, and
-point `NONES_CONFIG_DIR` at the shared directory. Stop the standalone OpenCode
-journal writer before enabling the same database from any other process.
-
-```json
-// config.json
-{ "version": 1, "modules": ["kaiten", "opencode"], "logLevel": "info",
-  "journal": { "enabled": true, "capturePrompts": false } }
-```
-
-```json
-// modules/kaiten.json
-{ "version": 1,
-  "permissions": { "destructive": false },
-  "env": { "KAITEN_API_URL": "https://kaiten.example/api/latest" },
-  "envFrom": { "KAITEN_API_TOKEN": "KAITEN_API_TOKEN" } }
-```
-
-```json
-// modules/opencode.json
-{ "version": 1,
-  "permissions": { "destructive": false, "admin": false, "exec": false },
-  "envFrom": { "OPENCODE_MCP_URL": "OPENCODE_MCP_URL",
-               "OPENCODE_MCP_PASSWORD": "OPENCODE_MCP_PASSWORD" } }
-```
-
-Rollback is removing the new entry; legacy entries and package versions are
-untouched. No real user or AIRun configuration was modified in this branch.
+  Node `>=22.14` (`node:sqlite`).
+- One process should own a journal database at a time; SQLite WAL allows
+  short-lived concurrent readers, not multiple long-running writers.

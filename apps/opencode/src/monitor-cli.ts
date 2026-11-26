@@ -1,6 +1,8 @@
+import {
+  attachJournalMetadata,
+  type CliActionOutcome,
+} from "@nones/mcp-core";
 import { OpenCodeClient } from "./client";
-import { recordJournaledOperation } from "./journal/cli-action";
-import { monitorOutcome } from "./journal-cli";
 import {
   monitorSession,
   type MonitorOptions,
@@ -37,33 +39,16 @@ export async function observeSession(
 export async function runMonitorCommand(
   options: MonitorCommandOptions,
   env: { [name: string]: string | undefined } = process.env,
-): Promise<number> {
+): Promise<CliActionOutcome> {
   const client = await OpenCodeClient.connect(env);
-  const startedAt = Date.now();
   try {
     const result = await observeSession(client, {
       sessionID: options.sessionID,
       untilTurn: options.untilTurn,
       timeoutSeconds: options.timeoutSeconds,
     });
-    await recordJournaledOperation({
-      operation: "opencode.session.monitor",
-      sessionId: options.sessionID,
-      outcome: monitorOutcome(result.code),
-      startedAt,
-      endedAt: Date.now(),
-      env,
-    });
-    return result.code;
+    return { exitCode: result.code, metadata: { sessionId: options.sessionID } };
   } catch (error) {
-    await recordJournaledOperation({
-      operation: "opencode.session.monitor",
-      sessionId: options.sessionID,
-      outcome: "failure",
-      startedAt,
-      endedAt: Date.now(),
-      env,
-    });
-    throw error;
+    throw attachJournalMetadata(error, { sessionId: options.sessionID });
   }
 }

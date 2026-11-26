@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { version as packageVersion } from "../src/version";
 import { waitForExit } from "./stdio";
 import { startStub } from "./stub";
 
@@ -56,7 +57,7 @@ test("server start reuses an explicit endpoint and proves MCP", async () => {
     status: "ready",
     source: "explicit",
     nativeStartRequested: false,
-    mcpVersion: "0.5.0",
+    mcpVersion: packageVersion,
   });
   expect(["tool", "list"]).toContain(ready.readiness);
   expect(result.stderr).toBe("");

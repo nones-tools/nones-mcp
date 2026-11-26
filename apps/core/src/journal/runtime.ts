@@ -2,17 +2,14 @@ import { resolveJournalConfig } from "./config";
 import { createJournalAdapter } from "./loader";
 import { PromptPolicyAdapter } from "./policy";
 import type { JournalAdapter, JournalRecord } from "./types";
+import type { SafeRecordResult } from "./sink";
 
 export interface OpenJournalOptions {
   env?: Record<string, string | undefined>;
   cwd?: string;
 }
 
-export interface SafeRecordResult {
-  recorded: boolean;
-  inserted: boolean;
-  error: string | null;
-}
+export type { SafeRecordResult } from "./sink";
 
 /**
  * Journaling is secondary to the native action. Call this after the action is

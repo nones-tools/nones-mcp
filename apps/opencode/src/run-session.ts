@@ -1,8 +1,11 @@
+import {
+  attachJournalMetadata,
+  type CliActionOutcome,
+} from "@nones/mcp-core";
 import { observeSession } from "./monitor-cli";
 import { readPrompt } from "./prompt";
 import { startSessionPrompt, type StartedSession } from "./session-start";
-import { recordJournaledOperation } from "./journal/cli-action";
-import { errorSessionID, monitorOutcome } from "./journal-cli";
+import { errorSessionID } from "./journal-cli";
 
 export interface RunOptions {
   directory: string;
@@ -20,26 +23,19 @@ export interface RunOptions {
 export async function runRun(
   options: RunOptions,
   env: { [name: string]: string | undefined } = process.env,
-): Promise<number> {
+): Promise<CliActionOutcome> {
   const deadline = options.timeoutSeconds
     ? Date.now() + options.timeoutSeconds * 1000
     : undefined;
   const prompt = await readPrompt(options.file);
-  const startedAt = Date.now();
   let started: StartedSession;
   try {
     started = await startSessionPrompt(options, env, prompt);
   } catch (error) {
-    await recordJournaledOperation({
-      operation: "opencode.session.run",
+    throw attachJournalMetadata(error, {
       prompt,
       sessionId: errorSessionID(error),
-      outcome: "failure",
-      startedAt,
-      endedAt: Date.now(),
-      env,
     });
-    throw error;
   }
   process.stdout.write(
     `${JSON.stringify({
@@ -52,6 +48,12 @@ export async function runRun(
       receipt: started.receipt,
     })}\n`,
   );
+  const metadata = {
+    prompt,
+    sessionId: started.info.id,
+    sessionTitle: started.info.title ?? options.title,
+    messageId: started.receipt.id,
+  };
   let code: number;
   try {
     code = (
@@ -63,29 +65,7 @@ export async function runRun(
       })
     ).code;
   } catch (error) {
-    await recordJournaledOperation({
-      operation: "opencode.session.run",
-      prompt,
-      sessionId: started.info.id,
-      sessionTitle: started.info.title ?? options.title,
-      messageId: started.receipt.id,
-      outcome: "failure",
-      startedAt,
-      endedAt: Date.now(),
-      env,
-    });
-    throw error;
+    throw attachJournalMetadata(error, metadata);
   }
-  await recordJournaledOperation({
-    operation: "opencode.session.run",
-    prompt,
-    sessionId: started.info.id,
-    sessionTitle: started.info.title ?? options.title,
-    messageId: started.receipt.id,
-    outcome: monitorOutcome(code),
-    startedAt,
-    endedAt: Date.now(),
-    env,
-  });
-  return code;
+  return { exitCode: code, metadata };
 }

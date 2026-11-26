@@ -2,6 +2,7 @@ import { beforeAll, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { version as packageVersion } from "../src/version";
 import { packageFixture, type PackageFixture } from "./package-fixture";
 import { startSessionStub } from "./session-stub";
 import { startCli, waitForMessages } from "./stdio";
@@ -20,7 +21,7 @@ test("the installed build runs under Bun with a bounded MCP handshake", async ()
   const version = execFileSync(bun, ["--no-env-file", cli, "--version"], {
     encoding: "utf8",
   });
-  expect(version.trim()).toBe("0.5.0");
+  expect(version.trim()).toBe(packageVersion);
 
   const child = startCli(
     [],
@@ -50,7 +51,7 @@ test("the installed build runs under Bun with a bounded MCP handshake", async ()
   child.kill();
   expect(
     messages.find((message) => message.id === 1)?.result.serverInfo.version,
-  ).toBe("0.5.0");
+  ).toBe(packageVersion);
   expect(
     JSON.stringify(messages.find((message) => message.id === 2)?.result),
   ).toContain("opencode_server_info");

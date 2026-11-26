@@ -8,6 +8,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import path from "node:path";
+import { version as packageVersion } from "../src/version";
 import { packageFixture, type PackageFixture } from "./package-fixture";
 import { startSessionStub } from "./session-stub";
 
@@ -133,7 +134,7 @@ test("the installed Node CLI runs from the packed tarball", () => {
   const version = execFileSync("node", [cli, "--version"], {
     encoding: "utf8",
   });
-  expect(version.trim()).toBe("0.5.0");
+  expect(version.trim()).toBe(packageVersion);
   const output = execFileSync("node", [cli, "help"], { encoding: "utf8" });
   expect(output).toContain("Usage: opencode-mcp");
   expect(output).toContain("start");
@@ -178,7 +179,7 @@ test("the oc2-mcp alias points at the same installed CLI", () => {
   const alias = path.join(fixture.consumer, "node_modules", ".bin", "oc2-mcp");
   expect(existsSync(alias)).toBe(true);
   expect(execFileSync(alias, ["--version"], { encoding: "utf8" }).trim()).toBe(
-    "0.5.0",
+    packageVersion,
   );
 });
 

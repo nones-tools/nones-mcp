@@ -55,7 +55,7 @@ describe("OpenCode 0.5.0 journal compatibility", () => {
     });
     const loaded = await loadConfig({ directory: sandbox.configDir, env: {} });
     expect(loaded.journal.adapter?.module).toBe("@nones/mcp-journal-sqlite");
-    expect(loaded.journal.adapter?.moduleUrl).toMatch(/\/dist\/index\.js$/);
+    expect(loaded.journal.adapter?.moduleUrl).toMatch(/\/dist\/sqlite\/index\.js$/);
     expect(loaded.journal.sqlitePath).toBeNull();
     expect(loaded.journal.capturePrompts).toBe(true);
   });

@@ -5,10 +5,19 @@ import {
   ProtocolError,
   Server,
   type CallToolResult,
+  type ServerCapabilities,
   type Tool,
 } from "@modelcontextprotocol/server";
+import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
+import {
+  JournalSink,
+  classifyToolResult,
+  journalInvocation,
+  mcpOperation,
+} from "./journal/index";
 import type { ModuleHost } from "./modules";
-import { isModuleError, type ToolDefinition } from "./types";
+import { ActionValidationError, type ToolServerEntry } from "./registry/registry";
+import { isModuleError, type ToolCallResult, type ToolDefinition } from "./types";
 
 export const SERVER_NAME = "nones-mcp";
 
@@ -41,6 +50,9 @@ function toWireTool(definition: ToolDefinition): Tool {
 
 function toError(error: unknown): ProtocolError {
   if (error instanceof ProtocolError) return error;
+  if (error instanceof ActionValidationError) {
+    return new ProtocolError(INVALID_PARAMS, error.message, { code: "VALIDATION" });
+  }
   if (isModuleError(error)) {
     const data =
       error.data === undefined ? { code: error.code } : { code: error.code, data: error.data };
@@ -52,37 +64,51 @@ function toError(error: unknown): ProtocolError {
   );
 }
 
+export interface ToolServerOptions {
+  tools: readonly ToolServerEntry[];
+  name?: string;
+  version?: string;
+  capabilities?: ServerCapabilities;
+  instructions?: string;
+  /** Trusted injected sink. Omit for a non-journaling protocol server. */
+  journal?: JournalSink | null;
+}
+
 /**
- * Builds the single stdio-facing MCP server. Tool metadata is copied verbatim
- * so SDK v1 (Kaiten) and SDK v2 (OpenCode) children stay indistinguishable from
- * native modules at the wire level.
+ * Builds one stdio-facing MCP server from explicit tool entries. Metadata is
+ * copied verbatim, calls are journaled exactly once when a sink is injected,
+ * and cancellation is forwarded through the shared call options.
  */
-export function createServer(host: ModuleHost): Server {
+export function createToolServer(options: ToolServerOptions): Server {
   const server = new Server(
-    { name: SERVER_NAME, version: coreVersion() },
+    { name: options.name ?? SERVER_NAME, version: options.version ?? coreVersion() },
     {
-      capabilities: { tools: { listChanged: false } },
-      instructions:
-        "Aggregated @nones MCP server. Each tool is provided by an explicitly installed, trusted module.",
+      capabilities: options.capabilities ?? { tools: { listChanged: false } },
+      ...(options.instructions === undefined ? {} : { instructions: options.instructions }),
     },
   );
+  const byName = new Map(options.tools.map((entry) => [entry.definition.name, entry]));
 
   server.setRequestHandler("tools/list", () => ({
-    tools: [...host.tools.values()].map((entry) => toWireTool(entry.definition)),
+    tools: options.tools.map((entry) => toWireTool(entry.definition)),
   }));
 
   server.setRequestHandler("tools/call", async (request, ctx) => {
-    const hosted = host.tools.get(request.params.name);
-    if (!hosted) {
+    const entry = byName.get(request.params.name);
+    if (!entry) {
       throw new ProtocolError(INVALID_PARAMS, `Tool ${request.params.name} not found`);
     }
-    // `task` is accepted for wire compatibility but not proxied: neither child
-    // server negotiates the tasks capability, so calls stay synchronous. The
-    // parameter is deliberately not forwarded to the child.
+    const signal = ctx.mcpReq.signal;
     try {
-      const result = await hosted.call(request.params.arguments ?? {}, {
-        signal: ctx.mcpReq.signal,
-      });
+      const result = await journalInvocation<ToolCallResult>(
+        {
+          sink: options.journal ?? null,
+          operation: mcpOperation(entry.integration, entry.definition.name),
+          signal,
+          outcome: classifyToolResult,
+        },
+        () => entry.call(request.params.arguments ?? {}, { signal }),
+      );
       return result as CallToolResult;
     } catch (error) {
       throw toError(error);
@@ -90,4 +116,37 @@ export function createServer(host: ModuleHost): Server {
   });
 
   return server;
+}
+
+/**
+ * Connects one already-configured server to stdout/stdin. Diagnostics must stay
+ * on stderr; callers own process lifecycle after this promise settles.
+ */
+export async function serveStdio(
+  server: Server,
+  options: { onClose?: () => void | Promise<void> } = {},
+): Promise<void> {
+  const transport = new StdioServerTransport();
+  if (options.onClose) {
+    transport.onclose = () => {
+      void options.onClose?.();
+    };
+  }
+  await server.connect(transport);
+}
+
+/**
+ * Aggregate entry point retained for existing callers. Journaling is disabled
+ * unless the caller explicitly injects a sink.
+ */
+export function createServer(
+  host: ModuleHost,
+  journal?: JournalSink | null,
+): Server {
+  const tools: ToolServerEntry[] = [...host.tools.entries()].map(([, hosted]) => ({
+    definition: hosted.definition,
+    integration: hosted.moduleId,
+    call: async (args, options) => hosted.call(args, options),
+  }));
+  return createToolServer({ tools, journal: journal ?? null });
 }

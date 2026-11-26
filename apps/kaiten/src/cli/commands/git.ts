@@ -7,7 +7,7 @@ export const gitBranchCommand: CliCommand = {
     const gitCardId = argv[1];
     if (!gitCardId) {
       console.error('Error: Card ID required');
-      process.exit(1);
+      return 1;
     }
     const sdk = getSdk();
     const card = (await sdk.getCard(Number(gitCardId))) as Card;
@@ -23,7 +23,7 @@ export const gitCheckoutCommand: CliCommand = {
     const checkoutCardId = argv[1];
     if (!checkoutCardId) {
       console.error('Error: Card ID required');
-      process.exit(1);
+      return 1;
     }
     const sdk = getSdk();
     const checkoutCard = (await sdk.getCard(Number(checkoutCardId))) as Card;
@@ -40,7 +40,7 @@ export const gitCommitCommand: CliCommand = {
     const commitMessage = argv[2] || 'Work in progress';
     if (!commitCardId) {
       console.error('Error: Card ID required');
-      process.exit(1);
+      return 1;
     }
     const sdk = getSdk();
     await sdk.gitAddAll();
@@ -63,7 +63,7 @@ export const gitPushCommand: CliCommand = {
     const pushCardId = argv[1];
     if (!pushCardId) {
       console.error('Error: Card ID required');
-      process.exit(1);
+      return 1;
     }
     const sdk = getSdk();
     const pushCard = (await sdk.getCard(Number(pushCardId))) as Card;

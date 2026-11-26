@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { Client } from "@modelcontextprotocol/client";
+import kaitenPackage from "../../kaiten/package.json" with { type: "json" };
 import { KAITEN_TOKEN, setupE2E, type E2EFixture } from "./fixtures";
 
 let fixture: E2EFixture;
@@ -29,7 +30,7 @@ describe("forwarded calls", () => {
       ready: boolean;
       apiToken: { present: boolean };
     };
-    expect(report.serverVersion).toBe("4.3.0");
+    expect(report.serverVersion).toBe(kaitenPackage.version);
     expect(report.ready).toBe(true);
     expect(report.apiToken.present).toBe(true);
     expect(text).not.toContain(KAITEN_TOKEN);
@@ -51,7 +52,9 @@ describe("forwarded calls", () => {
       task: {},
     } as never);
     expect(result.isError).toBeFalsy();
-    expect((result.content[0] as { text: string }).text).toContain("4.3.0");
+    expect((result.content[0] as { text: string }).text).toContain(
+      kaitenPackage.version,
+    );
   });
 
   test("unknown tools produce the standard JSON-RPC invalid params error", async () => {

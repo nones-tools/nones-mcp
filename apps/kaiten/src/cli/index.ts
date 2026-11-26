@@ -1,12 +1,17 @@
 #!/usr/bin/env node
 
+import {
+  CliDispatcher,
+  createActionRegistry,
+  isExcludedCommand,
+  type ActionDefinition,
+} from '@nones/mcp-core';
 import type { CliDeps } from '../interfaces';
 import { KaitenApiError } from '../kaiten';
 import { createSDK, type KaitenSDK } from '../sdk';
-import { buildRegistry } from './registry';
+import { buildRegistry, commands } from './registry';
 
 const args = process.argv.slice(2);
-const command = args[0];
 
 // Config/SDK are constructed lazily (only by commands that need them) so
 // that `help` and unrecognized commands work without KAITEN_* credentials
@@ -21,27 +26,53 @@ const deps: CliDeps = {
   },
 };
 
-async function main(): Promise<void> {
-  const registry = buildRegistry();
-  const cmd = command === undefined ? undefined : registry.get(command);
-
-  if (!cmd) {
-    console.error(`Unknown command: ${command}`);
-    console.log('Run "kaiten help" for usage information');
-    process.exit(1);
+function printError(error: unknown): void {
+  if (error instanceof KaitenApiError) {
+    console.error('Error:', error.body ?? error.message);
+  } else if (error instanceof Error) {
+    console.error('Error:', error.message);
+  } else {
+    console.error('Error:', error);
   }
+}
 
+async function main(): Promise<void> {
+  // Preserve the duplicate-name guard and its exact error before exposing
+  // handlers through the shared CLI surface.
+  buildRegistry();
+  const registry = createActionRegistry(
+    'kaiten',
+    commands.map(
+      (command): ActionDefinition => ({
+        id: command.name,
+        cli: {
+          command: command.name,
+          ...(command.aliases === undefined ? {} : { aliases: command.aliases }),
+          journal: isExcludedCommand(command.name) ? false : undefined,
+          parse: ({ argv }) => ({ argv }),
+        },
+        handle: (input) => command.run((input as { argv: string[] }).argv, deps),
+      }),
+    ),
+  );
+  const cli = new CliDispatcher(registry, {
+    onUnknown: (name) => {
+      console.error(`Unknown command: ${name}`);
+      console.log('Run "kaiten help" for usage information');
+      return 1;
+    },
+    onError: (error) => {
+      printError(error);
+      // Set the exit code instead of exiting inside the dispatcher: journaling
+      // has already recorded the failure, and the finally block must still
+      // close the owned sink.
+      process.exitCode = 1;
+    },
+  });
   try {
-    await cmd.run(args, deps);
-  } catch (error) {
-    if (error instanceof KaitenApiError) {
-      console.error('Error:', error.body ?? error.message);
-    } else if (error instanceof Error) {
-      console.error('Error:', error.message);
-    } else {
-      console.error('Error:', error);
-    }
-    process.exit(1);
+    await cli.run(args);
+  } finally {
+    await cli.close();
   }
 }
 

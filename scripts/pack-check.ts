@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 
 const run = promisify(execFile);
 const root = path.resolve(import.meta.dir, "..");
-const PACKAGES = ["apps/core", "adapters/sqlite", "apps/kaiten", "apps/opencode"];
+const PACKAGES = ["apps/core", "adapters/journal", "apps/kaiten", "apps/opencode"];
 const failures: string[] = [];
 
 function check(condition: boolean, message: string): void {
@@ -56,10 +56,15 @@ for (const relative of PACKAGES) {
     (pkg.files ?? []).every((file) => file === "dist" || !file.startsWith("src")),
     `${label} must not publish source directories`,
   );
-  const entry = pkg.exports?.["."];
-  check(entry?.types === "./dist/index.d.ts", `${label} needs a packed types entry`);
-  check(entry?.import === "./dist/index.js", `${label} needs a packed import entry`);
   const exportMap = pkg.exports as Record<string, { types?: string; import?: string }>;
+  if (label === "@nones/journal") {
+    check(exportMap["./sqlite"]?.types === "./dist/sqlite/index.d.ts", "journal needs a ./sqlite types entry");
+    check(exportMap["./sqlite"]?.import === "./dist/sqlite/index.js", "journal needs a ./sqlite import entry");
+  } else {
+    const entry = exportMap["."];
+    check(entry?.types === "./dist/index.d.ts", `${label} needs a packed types entry`);
+    check(entry?.import === "./dist/index.js", `${label} needs a packed import entry`);
+  }
   if (label === "@nones/mcp-core") {
     check(exportMap["./journal"]?.types === "./dist/journal/index.d.ts", "core needs a ./journal types entry");
     check(exportMap["./journal"]?.import === "./dist/journal/index.js", "core needs a ./journal import entry");
@@ -70,7 +75,10 @@ for (const relative of PACKAGES) {
     check(moduleExport?.types?.endsWith(".d.ts") === true, `${label} needs a ./module types entry`);
     check(moduleExport?.import?.endsWith(".js") === true, `${label} needs a ./module import entry`);
   }
-  for (const file of ["dist/index.js", "dist/index.d.ts"]) {
+  const entryFiles = label === "@nones/journal"
+    ? ["dist/sqlite/index.js", "dist/sqlite/index.d.ts"]
+    : ["dist/index.js", "dist/index.d.ts"];
+  for (const file of entryFiles) {
     await stat(path.join(directory, file)).catch(() =>
       failures.push(`${label} is missing ${file}; run bun run build`),
     );
@@ -108,8 +116,9 @@ for (const relative of PACKAGES) {
   }
   const report = JSON.parse(packed.stdout) as Array<{ files: Array<{ path: string }> }>;
   const paths = report[0]?.files.map((file) => file.path) ?? [];
-  check(paths.includes("dist/index.js"), `${label}: packed tarball lacks dist/index.js`);
-  check(paths.includes("dist/index.d.ts"), `${label}: packed tarball lacks dist/index.d.ts`);
+  for (const file of entryFiles) {
+    check(paths.includes(file), `${label}: packed tarball lacks ${file}`);
+  }
   check(!paths.some((file) => file.startsWith("src/")), `${label}: packed tarball leaks src/`);
   console.log(`${label}@${pkg.version}: ${paths.length} packed files, declarations ok`);
 }

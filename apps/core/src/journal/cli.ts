@@ -1,8 +1,7 @@
 import type { Command } from "commander";
-import { formatJson } from "../json";
-import { JournalError } from "./errors";
+import { isJournalError, JournalError } from "./errors";
 import { MAX_QUERY_LIMIT } from "./limits";
-import { readJournalList, readJournalStats } from "./cli-reads";
+import { readJournalList, readJournalStats } from "./read";
 import type { JournalFilter, JournalOutcome } from "./types";
 
 export interface JournalCommandIO {
@@ -26,6 +25,11 @@ interface ListCommandOptions extends FilterCommandOptions {
   limit?: string;
   cursor?: string;
   includePrompts?: boolean;
+}
+
+/** User-facing JSON is indented; protocol framing never uses this helper. */
+export function formatJournalJson(value: unknown): string {
+  return JSON.stringify(value, null, 2) ?? "null";
 }
 
 function filterFrom(options: FilterCommandOptions): JournalFilter {
@@ -53,7 +57,7 @@ function limitFrom(value: string | undefined): number | undefined {
 }
 
 function safeSummary(error: unknown): string {
-  if (error instanceof JournalError) {
+  if (isJournalError(error)) {
     if (
       error.code === "config" ||
       error.code === "validation" ||
@@ -93,10 +97,8 @@ function addFilterOptions(command: Command): Command {
 }
 
 /**
- * Registration is inert: no config read and no node:sqlite import until an action
- * runs. On Node 22 an enabled SQLite command may emit its built-in experimental
- * warning on stderr; this project does not suppress warnings. CLI tests should set
- * OPENCODE_MCP_CONFIG to a synthetic {"journal":{"enabled":false}} file.
+ * Registers the public journal read commands. Registration is inert: no config
+ * read and no SQLite import until an action runs.
  */
 export function registerJournalCommands(
   program: Command,
@@ -118,15 +120,16 @@ export function registerJournalCommands(
     );
   list.action((options: ListCommandOptions) =>
     execute(io, async () => {
+      const limit = limitFrom(options.limit);
       const page = await readJournalList({
-        env: io.env,
-        cwd: io.cwd,
+        ...(io.env === undefined ? {} : { env: io.env }),
+        ...(io.cwd === undefined ? {} : { cwd: io.cwd }),
         filter: filterFrom(options),
-        limit: limitFrom(options.limit),
-        cursor: options.cursor,
+        ...(limit === undefined ? {} : { limit }),
+        ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
         includePrompts: options.includePrompts === true,
       });
-      return formatJson(page);
+      return formatJournalJson(page);
     }),
   );
 
@@ -140,11 +143,11 @@ export function registerJournalCommands(
   stats.action((options: FilterCommandOptions) =>
     execute(io, async () => {
       const result = await readJournalStats({
-        env: io.env,
-        cwd: io.cwd,
+        ...(io.env === undefined ? {} : { env: io.env }),
+        ...(io.cwd === undefined ? {} : { cwd: io.cwd }),
         filter: filterFrom(options),
       });
-      return formatJson(result);
+      return formatJournalJson(result);
     }),
   );
 }

@@ -1,9 +1,13 @@
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import {
+  createToolServer,
+  journalSinkFor,
+  serveStdio,
+  type JournalSink,
+  type ToolServerEntry,
+} from '@nones/mcp-core';
 import { inspectConfig, loadConfigLenient } from '../kaiten';
 import { KaitenSDK } from '../sdk';
 import { getLogLevel } from './logger';
@@ -25,17 +29,13 @@ export function readVersion(): string {
 }
 
 /**
- * Builds the standalone MCP server. Tool registration, schema conversion and
- * the middleware chain all come from `createToolRuntime` - the same
- * implementation the source-owned module export uses.
+ * Builds the standalone MCP server through the shared core transport. Tool
+ * registration, schema conversion and the middleware chain still come from
+ * `createToolRuntime`; timing, result classification and journaling come from
+ * `@nones/mcp-core`.
  */
-export function createMcpServer(): Server {
+export function createMcpServer(options: { journal?: JournalSink | null } = {}) {
   let sdk: KaitenSDK | null = null;
-  const server = new Server(
-    { name: SERVER_NAME, version: readVersion() },
-    { capabilities: { tools: { listChanged: true } } }
-  );
-
   const runtime = createToolRuntime({
     version: readVersion(),
     config: loadConfigLenient(),
@@ -46,20 +46,29 @@ export function createMcpServer(): Server {
     },
   });
 
-  // Low-level registration is intentional: McpServer.registerTool() in SDK
-  // 1.29.0 hardcodes `taskSupport: forbidden`, which hides tools from Codex
-  // task chats. These handlers preserve the same schemas and middleware.
-  server.setRequestHandler(ListToolsRequestSchema, () => ({ tools: runtime.definitions }));
-  server.setRequestHandler(CallToolRequestSchema, async (request) =>
-    runtime.call(request.params.name, request.params.arguments ?? {})
-  );
+  const tools: ToolServerEntry[] = runtime.definitions.map((definition) => ({
+    definition,
+    integration: 'kaiten',
+    call: async (args) => runtime.call(definition.name, args),
+  }));
 
-  return server;
+  return createToolServer({
+    name: SERVER_NAME,
+    version: readVersion(),
+    capabilities: { tools: { listChanged: true } },
+    tools,
+    journal: options.journal ?? null,
+  });
 }
 
 export async function startMcpServer(): Promise<void> {
   console.error(`MCP Server starting with log level: ${getLogLevel()}`);
-  const server = createMcpServer();
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
+  const journal = journalSinkFor({ env: process.env, cwd: process.cwd() });
+  try {
+    const server = createMcpServer({ journal });
+    await serveStdio(server, { onClose: () => journal.close() });
+  } catch (error) {
+    await journal.close();
+    throw error;
+  }
 }

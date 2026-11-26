@@ -23,7 +23,7 @@ const suites: Array<{ cwd: string; args: string[] }> = [
   { cwd: root, args: ["test", "apps/core/test"] },
   { cwd: path.join(root, "apps/kaiten"), args: ["test"] },
   { cwd: path.join(root, "apps/opencode"), args: ["test"] },
-  { cwd: path.join(root, "adapters/sqlite"), args: ["test"] },
+  { cwd: path.join(root, "adapters/journal"), args: ["test"] },
 ];
 
 for (const suite of suites) {

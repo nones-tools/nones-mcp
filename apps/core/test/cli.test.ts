@@ -5,6 +5,13 @@ import path from "node:path";
 import { childEnvironment, coreBin, makeSandbox, repoRoot } from "./support";
 
 const NODE = process.env.NODE_BIN ?? "node";
+const corePackage = JSON.parse(
+  await readFile(path.join(repoRoot, "apps/core/package.json"), "utf8"),
+) as {
+  version: string;
+  bin: Record<string, string>;
+  engines: { node: string };
+};
 
 function run(
   runtime: string,
@@ -23,12 +30,9 @@ function run(
 }
 
 describe("packaged CLI execution", () => {
-  test("package bin maps the nones-mcp entry", async () => {
-    const pkg = JSON.parse(
-      await readFile(path.join(repoRoot, "apps/core/package.json"), "utf8"),
-    ) as { bin: Record<string, string>; engines: { node: string } };
-    expect(pkg.bin).toEqual({ "nones-mcp": "./dist/bin.js" });
-    expect(pkg.engines.node).toBe(">=22.14");
+  test("package bin maps the nones-mcp entry", () => {
+    expect(corePackage.bin).toEqual({ "nones-mcp": "./dist/bin.js" });
+    expect(corePackage.engines.node).toBe(">=22.14");
   });
 
   test("runs under Node >= 22.14 and under Bun", async () => {
@@ -38,7 +42,7 @@ describe("packaged CLI execution", () => {
     for (const runtime of [NODE, process.execPath]) {
       const result = await run(runtime, [coreBin, "--version"], env);
       expect(result.code).toBe(0);
-      expect(result.stdout.trim()).toBe("0.1.0");
+      expect(result.stdout.trim()).toBe(corePackage.version);
     }
   });
 

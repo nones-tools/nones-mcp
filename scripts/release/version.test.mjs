@@ -43,7 +43,8 @@ test("version writes a stale root version even when root @nones deps are unchang
 });
 
 test("version synchronizes root, all four workspaces, dependencies and bun.lock", async (t) => {
-  const root = await makeFixture(null);
+  // Start from a stale released state so the 5.0.0 synchronization is observable.
+  const root = await makeFixture("4.9.0");
   t.after(() => cleanup(root));
   const before = await readManifests(root);
   const lockBefore = await readFile(path.join(root, "bun.lock"), "utf8");

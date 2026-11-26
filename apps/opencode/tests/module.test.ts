@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import type { ModuleContext } from "@nones/mcp-core";
 import { module } from "../src/module";
+import { version as packageVersion } from "../src/version";
 import { startSessionStub } from "./session-stub";
 
 const scratch = path.join(process.cwd(), "..", "..", ".tmp", "tests");
@@ -40,8 +41,8 @@ describe("source-owned opencode module", () => {
   test("exposes versioned metadata without reading the service at import time", () => {
     expect(module.apiVersion).toBe(1);
     expect(module.id).toBe("opencode");
-    expect(module.version).toBe("0.5.0");
-    expect(module.host).toEqual({ name: "@nones/opencode-mcp", version: "0.5.0" });
+    expect(module.version).toBe(packageVersion);
+    expect(module.host).toEqual({ name: "@nones/opencode-mcp", version: packageVersion });
   });
 
   test("discovers native tools with the scoped env and never mutates process.env", async () => {

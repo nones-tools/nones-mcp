@@ -1,11 +1,17 @@
 import { Client } from "@modelcontextprotocol/client";
-import { InMemoryTransport, type McpServer } from "@modelcontextprotocol/server";
+import { InMemoryTransport, type Transport } from "@modelcontextprotocol/server";
 import { mapTool } from "./forward-map";
 import type { ToolCallResult, ToolContent, ToolDefinition } from "./types";
 
+/** Both the v2 `Server` and `McpServer` satisfy this bridge contract. */
+export interface ConnectableServer {
+  connect(transport: Transport): Promise<void>;
+  close(): Promise<void>;
+}
+
 export interface InMemoryForwardOptions {
   /** Already-configured MCP server owned by the module. */
-  server: McpServer;
+  server: ConnectableServer;
   clientName?: string;
   clientVersion?: string;
 }
@@ -18,7 +24,7 @@ export interface InMemoryForwardOptions {
 export class InMemoryForwarder {
   private constructor(
     private readonly client: Client,
-    private readonly server: McpServer,
+    private readonly server: ConnectableServer,
   ) {}
 
   static async create(options: InMemoryForwardOptions): Promise<InMemoryForwarder> {

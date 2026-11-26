@@ -34,6 +34,39 @@ export {
 export { ModuleHost, TRUSTED_MODULES, type HostedTool } from "./modules";
 export { envNameAllowedFor, isDeniedEnvName, TRUSTED_MODULE_IDS } from "./trust";
 export { createLogger, scopedLogger } from "./logger";
-export { createServer, SERVER_NAME } from "./server";
+export {
+  createServer,
+  createToolServer,
+  serveStdio,
+  SERVER_NAME,
+  type ToolServerOptions,
+} from "./server";
 export { StdioForwarder, type StdioForwardOptions } from "./forward";
 export { InMemoryForwarder, type InMemoryForwardOptions } from "./in-memory";
+export {
+  ActionRegistry,
+  ActionValidationError,
+  createActionRegistry,
+  registryTools,
+  toToolResult,
+  type ToolServerEntry,
+} from "./registry/registry";
+export {
+  CliDispatcher,
+  createCommanderProgram,
+  type CliDispatcherOptions,
+  type CliSurfaceOptions,
+  type CommanderProgramOptions,
+} from "./registry/cli";
+export type {
+  ActionContext,
+  ActionDefinition,
+  ActionSurface,
+  CliActionOutcome,
+  CliArgumentSpec,
+  CliExposure,
+  CliHandlerResult,
+  CliOptionSpec,
+  CliParseInput,
+  ToolExposure,
+} from "./registry/types";

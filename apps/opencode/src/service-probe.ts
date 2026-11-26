@@ -1,7 +1,9 @@
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
+import { JOURNAL_SUPPRESS_ENV } from "@nones/mcp-core";
 import path from "node:path";
 import { canceledError, sanitizeServiceDetail } from "./service-errors";
+import { version } from "./version";
 import type {
   ProbeInput,
   ProbeResult,
@@ -44,11 +46,16 @@ export function probeArguments(
 }
 
 function environment(env: ServiceEnvironment): { [name: string]: string } {
-  return Object.fromEntries(
-    Object.entries(env).filter(
-      (entry): entry is [string, string] => typeof entry[1] === "string",
+  return {
+    ...Object.fromEntries(
+      Object.entries(env).filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string",
+      ),
     ),
-  );
+    // The readiness child is infrastructure, not a user operation. Keep its
+    // synthetic tools/list + opencode_server_info call out of the user journal.
+    [JOURNAL_SUPPRESS_ENV]: "1",
+  };
 }
 
 export function createMcpProbe(options: McpProbeOptions): ServiceProbe {
@@ -162,7 +169,7 @@ async function runProbe(
   input.signal?.addEventListener("abort", onAbort, { once: true });
   const client = new Client({
     name: "opencode-mcp-readiness",
-    version: "0.5.0",
+    version,
   });
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {

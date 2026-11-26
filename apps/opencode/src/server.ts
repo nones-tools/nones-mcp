@@ -1,173 +1,51 @@
-import { McpServer } from "@modelcontextprotocol/server";
-import { classify, OpenCodeClient } from "./client";
-import { groupHistory } from "./history";
 import {
-  eventParams,
-  historyParams,
-  operationFilter,
-  operationRequest,
-  requestParams,
-} from "./tool-schema";
-import { toolFailure, toolResult } from "./tool-result";
-import type { Operation } from "./types";
+  createActionRegistry,
+  registryTools,
+  createToolServer,
+  journalSinkFor,
+  serveStdio,
+  type JournalSink,
+} from "@nones/mcp-core";
+import { OpenCodeClient } from "./client";
+import { toolActions } from "./tool-actions";
 import { version } from "./version";
 
-const streamOperations = ["event.subscribe", "experimental.session.log"];
-
-interface HistoryInput {
-  sessionID: string;
-  cursor?: string;
-  limit?: number;
+export interface OpenCodeServerOptions {
+  /** Trusted injected sink; omit for a non-journaling bridge (module path). */
+  journal?: JournalSink | null;
 }
 
-class OpenCodeTools {
-  private server = new McpServer({
+/**
+ * Builds the native OpenCode MCP server through the shared core constructors.
+ * Discovery, schemas, annotations, guards, steer, history and events keep their
+ * original implementations; protocol registration and journaling live in core.
+ */
+export async function createServer(
+  client: OpenCodeClient,
+  options: OpenCodeServerOptions = {},
+) {
+  const operations = await client.operations();
+  const registry = createActionRegistry(
+    "opencode",
+    toolActions(client, operations),
+  );
+  return createToolServer({
     name: "opencode-mcp",
     version,
+    capabilities: { tools: { listChanged: true } },
+    tools: registryTools(registry),
+    journal: options.journal ?? null,
   });
-
-  constructor(
-    private client: OpenCodeClient,
-    private operations: Operation[],
-  ) {}
-
-  register(): McpServer {
-    this.registerCatalog();
-    this.registerRequest();
-    this.registerHistory();
-    this.registerEvents();
-    for (const operation of this.operations)
-      if (!streamOperations.includes(operation.id))
-        this.registerOperation(operation);
-    return this.server;
-  }
-
-  private registerCatalog(): void {
-    this.server.registerTool(
-      "opencode_operations",
-      {
-        description:
-          "List supported safe-to-discover native OpenCode operations and their parameter metadata.",
-        inputSchema: operationFilter,
-        annotations: {
-          readOnlyHint: true,
-          destructiveHint: false,
-        },
-      },
-      async ({ filter }) =>
-        toolResult(
-          this.operations
-            .filter((op) => !filter || op.id.includes(filter))
-            .map((op) => ({
-              ...op,
-              category: classify(op),
-            })),
-        ),
-    );
-  }
-
-  private registerRequest(): void {
-    this.server.registerTool(
-      "opencode_request",
-      {
-        description:
-          "Call an operation by exact OpenAPI operation ID. The server centrally enforces safety gates.",
-        inputSchema: operationRequest,
-        annotations: {
-          readOnlyHint: false,
-          destructiveHint: true,
-        },
-      },
-      async (input, ctx) =>
-        this.respond(() => this.client.request(input, ctx.mcpReq.signal)),
-    );
-  }
-
-  private registerHistory(): void {
-    this.server.registerTool(
-      "opencode_history",
-      {
-        description:
-          "Group a page of native messages by user prompt, including steering and assistant steps.",
-        inputSchema: historyParams,
-        annotations: {
-          readOnlyHint: true,
-          destructiveHint: false,
-        },
-      },
-      async (input, ctx) =>
-        this.respond(() => this.history(input, ctx.mcpReq.signal)),
-    );
-  }
-
-  private registerEvents(): void {
-    this.server.registerTool(
-      "opencode_events",
-      {
-        description:
-          "Read bounded native session log or volatile global events. Global stream has no replay cursor.",
-        inputSchema: eventParams,
-        annotations: {
-          readOnlyHint: true,
-          destructiveHint: false,
-        },
-      },
-      async (input, ctx) =>
-        this.respond(() => this.client.events(input, ctx.mcpReq.signal)),
-    );
-  }
-
-  private registerOperation(op: Operation): void {
-    const category = classify(op);
-    this.server.registerTool(
-      `opencode_${op.id.replace(/[^a-zA-Z0-9_-]/g, "_")}`,
-      {
-        description: `${op.description || op.id} (native operation ${op.id}). Path and query keys match the OpenAPI catalog.`,
-        inputSchema: requestParams,
-        annotations: {
-          readOnlyHint: category === "read",
-          destructiveHint:
-            category === "destructive" ||
-            category === "admin" ||
-            category === "exec",
-        },
-      },
-      async (input, ctx) =>
-        this.respond(() =>
-          this.client.request(
-            { ...input, operation: op.id },
-            ctx.mcpReq.signal,
-          ),
-        ),
-    );
-  }
-
-  private history(input: HistoryInput, signal?: AbortSignal) {
-    return this.client
-      .request(
-        {
-          operation: "session.message.list",
-          path: { sessionID: input.sessionID },
-          query: {
-            ...(input.cursor ? { cursor: input.cursor } : { order: "asc" }),
-            ...(input.limit ? { limit: input.limit } : {}),
-          },
-        },
-        signal,
-      )
-      .then(groupHistory);
-  }
-
-  private async respond(run: () => MaybePromise<unknown>) {
-    try {
-      return toolResult(await run());
-    } catch (error) {
-      return toolFailure(error);
-    }
-  }
 }
 
-export async function createServer(client: OpenCodeClient) {
-  const operations = await client.operations();
-  return new OpenCodeTools(client, operations).register();
+/** Runs the stdio server and owns the configured journal sink. */
+export async function startStdioServer(client: OpenCodeClient): Promise<void> {
+  const journal = journalSinkFor({ env: process.env, cwd: process.cwd() });
+  try {
+    const server = await createServer(client, { journal });
+    await serveStdio(server, { onClose: () => journal.close() });
+  } catch (error) {
+    await journal.close();
+    throw error;
+  }
 }

@@ -43,7 +43,7 @@ async function prepare(): Promise<PackageFixture> {
   // Shared runtime packages are installed from local tarballs, never the registry.
   const corePack = packManifest(path.join(projectRoot, "..", "core"));
   const sqlitePack = packManifest(
-    path.join(projectRoot, "..", "..", "adapters", "sqlite"),
+    path.join(projectRoot, "..", "..", "adapters", "journal"),
   );
   const packedFiles: string[] = pack.files.map(
     (file: { path: string }) => file.path,

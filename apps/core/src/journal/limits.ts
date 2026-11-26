@@ -9,3 +9,7 @@ export const MAX_DURATION_MS = 24 * 60 * 60 * 1000;
 export const DEFAULT_QUERY_LIMIT = 50;
 export const MAX_QUERY_LIMIT = 200;
 export const MAX_CURSOR_BYTES = 1024;
+
+/** Post-action journaling is always bounded and best effort. */
+export const DEFAULT_RECORD_TIMEOUT_MS = 100;
+export const MAX_RECORD_TIMEOUT_MS = 1_000;

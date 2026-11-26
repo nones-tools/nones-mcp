@@ -73,11 +73,19 @@ export function expandPath(
   return path.resolve(base, value);
 }
 
+const LEGACY_SQLITE_ADAPTER = "@nones/mcp-journal-sqlite";
+const DEFAULT_SQLITE_ADAPTER = "@nones/journal/sqlite";
+
+/**
+ * Maps only the exact pre-5.0 default package specifier. Any other adapter is
+ * resolved as written so a config never silently falls back to SQLite.
+ */
 export function adapterUrl(
-  specifier: string,
+  value: string,
   configDirectory: string,
   env: Record<string, string | undefined>,
 ): string {
+  const specifier = value === LEGACY_SQLITE_ADAPTER ? DEFAULT_SQLITE_ADAPTER : value;
   if (specifier.startsWith("file:")) {
     let url: URL;
     try {

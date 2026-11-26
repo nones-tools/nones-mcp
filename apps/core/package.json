@@ -1,6 +1,6 @@
 {
   "name": "@nones/mcp-core",
-  "version": "0.1.0",
+  "version": "5.0.0",
   "description": "Single stdio MCP entry that hosts explicitly installed @nones modules",
   "license": "MIT",
   "type": "module",
@@ -33,7 +33,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.4.0",
-    "@modelcontextprotocol/client": "2.4.0"
+    "@modelcontextprotocol/client": "2.4.0",
+    "commander": "15.1.0"
   },
   "devDependencies": {},
   "repository": {

@@ -1,45 +1,66 @@
+/**
+ * Published `@nones/opencode-mcp/journal` surface. It is now the same core
+ * journal API plus the default SQLite plugin, so existing consumers keep
+ * working without a second implementation.
+ */
 export {
   JOURNAL_API_VERSION,
   JOURNAL_OUTCOMES,
+  JOURNALED_OPERATIONS,
+  JournalError,
+  isJournalError,
+  JournalSink,
+  PromptPolicyAdapter,
+  classifyError,
+  classifyToolResult,
+  createJournalAdapter,
+  decodeCursor,
+  encodeCursor,
+  journalInvocation,
+  mcpOperation,
+  openJournal,
+  operationCapturesPrompt,
+  readJournalList,
+  readJournalStats,
+  recordJournaledOperation,
+  recordSafely,
+  registerJournalCommands,
+  requireJournal,
+  resolveJournalConfig,
+  runJournaledOperation,
+  utcToMs,
+  validateFilter,
+  validateQuery,
+  validateRecord,
+  attachJournalMetadata,
+  outcomeFromExitCode,
+  cliOperation,
+  DEFAULT_QUERY_LIMIT,
+  DEFAULT_RECORD_TIMEOUT_MS,
+  MAX_PROMPT_BYTES,
+  MAX_QUERY_LIMIT,
+  MAX_RECORD_TIMEOUT_MS,
   type JournalAdapter,
   type JournalAdapterFactory,
   type JournalAdapterSelection,
+  type JournalCommandIO,
+  type JournalCompletionOptions,
+  type JournaledOperation,
+  type JournaledOperationOptions,
   type JournalFilter,
+  type JournalMetadata,
   type JournalOperationCount,
   type JournalOutcome,
   type JournalOutcomeCount,
   type JournalPage,
   type JournalQuery,
-  type JournalRecord,
-  type JournalRecordResult,
-  type JournalStats,
-} from "./types";
-export { JournalError, type JournalErrorCode } from "./errors";
-export {
-  DEFAULT_QUERY_LIMIT,
-  MAX_PROMPT_BYTES,
-  MAX_QUERY_LIMIT,
-} from "./limits";
-export { resolveJournalConfig, type JournalSettings } from "./config";
-export { createJournalAdapter } from "./loader";
-export { PromptPolicyAdapter } from "./policy";
-export { openJournal, recordSafely } from "./runtime";
-export {
-  readJournalList,
-  readJournalStats,
   type JournalReadOptions,
-} from "./cli-reads";
-export {
-  recordJournaledOperation,
-  runJournaledOperation,
-  type JournalCompletionOptions,
-} from "./cli-action";
-export {
-  DEFAULT_RECORD_TIMEOUT_MS,
-  JOURNALED_OPERATIONS,
-  MAX_RECORD_TIMEOUT_MS,
-  operationCapturesPrompt,
-  type JournalMetadata,
-  type JournaledOperation,
-  type JournaledOperationOptions,
-} from "./cli-operation";
+  type JournalRecord,
+  type JournalRecordOptions,
+  type JournalRecordResult,
+  type JournalSettings,
+  type JournalStats,
+  type OpenJournalOptions,
+  type SafeRecordResult,
+} from "@nones/mcp-core/journal";
+export { openSqliteJournal } from "@nones/journal/sqlite";

@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
+import { version as packageVersion } from "../src/version";
 import { startCli, waitForExit } from "./stdio";
 import { startStub } from "./stub";
 
@@ -66,7 +67,7 @@ test("version flags report the package version", async () => {
       startCli(args, { OPENCODE_MCP_URL: unavailable }),
     );
     expect(result.code).toBe(0);
-    expect(result.stdout.trim()).toBe("0.5.0");
+    expect(result.stdout.trim()).toBe(packageVersion);
     expect(result.stderr).toBe("");
   }
 }, 15000);

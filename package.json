@@ -1,7 +1,7 @@
 {
   "name": "nones-mcp-workspace",
   "private": true,
-  "version": "0.0.0",
+  "version": "5.0.0",
   "description": "Bun Workspaces prototype and migration spec for the @nones MCP server suite",
   "license": "MIT",
   "type": "module",
@@ -14,21 +14,26 @@
     "adapters/*"
   ],
   "scripts": {
-    "build": "bun run --cwd apps/core build && bun run --cwd adapters/sqlite build && bun run --cwd apps/kaiten build && bun run --cwd apps/opencode build",
-    "typecheck": "bun run --cwd apps/core typecheck && bun run --cwd adapters/sqlite typecheck && bun run --cwd apps/kaiten typecheck && bun run --cwd apps/opencode typecheck",
+    "build": "bun run --cwd apps/core build && bun run --cwd adapters/journal build && bun run --cwd apps/kaiten build && bun run --cwd apps/opencode build",
+    "typecheck": "bun run --cwd apps/core typecheck && bun run --cwd adapters/journal typecheck && bun run --cwd apps/kaiten typecheck && bun run --cwd apps/opencode typecheck",
     "test": "bun run build && bun run test:unit",
     "test:e2e": "bun test apps/core/test/e2e",
     "pack:check": "bun run scripts/pack-check.ts",
     "verify": "bun run build && bun run typecheck && bun run lint && bun run test:unit && bun run pack:check",
     "test:unit": "bun run scripts/test.ts",
-    "lint": "bun run --cwd apps/kaiten lint && bun run --cwd apps/opencode lint"
+    "lint": "bun run --cwd apps/kaiten lint && bun run --cwd apps/opencode lint",
+    "release:test": "node --test scripts/release.test.mjs",
+    "release:version": "node scripts/release.mjs version",
+    "release:plan": "node scripts/release.mjs plan",
+    "release:pack": "node scripts/release.mjs pack",
+    "release:publish": "node scripts/release.mjs publish"
   },
   "devDependencies": {
+    "@nones/journal": "5.0.0",
+    "@nones/kaiten-mcp": "5.0.0",
+    "@nones/mcp-core": "5.0.0",
+    "@nones/opencode-mcp": "5.0.0",
     "@types/node": "26.6.11",
-    "typescript": "7.0.2",
-    "@nones/mcp-core": "workspace:*",
-    "@nones/kaiten-mcp": "workspace:*",
-    "@nones/mcp-journal-sqlite": "workspace:*",
-    "@nones/opencode-mcp": "workspace:*"
+    "typescript": "7.0.2"
   }
 }

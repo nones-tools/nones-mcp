@@ -1,4 +1,9 @@
 import { realpath, stat } from "node:fs/promises";
+import {
+  attachJournalMetadata,
+  type CliActionOutcome,
+  type JournalMetadata,
+} from "@nones/mcp-core";
 import { OpenCodeClient } from "./client";
 import { formatJson } from "./json";
 import {
@@ -12,7 +17,6 @@ import {
 } from "./native-session";
 import { readPrompt } from "./prompt";
 import { resolveModel, type ModelRef } from "./session-model";
-import { recordJournaledOperation } from "./journal/cli-action";
 import {
   bestEffortSessionTitle,
   errorSessionID,
@@ -98,25 +102,17 @@ export async function startSessionPrompt(
 export async function runStart(
   options: StartOptions,
   env: { [name: string]: string | undefined } = process.env,
-): Promise<void> {
+): Promise<CliActionOutcome> {
   const prompt = await readPrompt(options.file);
-  const startedAt = Date.now();
   let started: StartedSession;
   try {
     started = await startSessionPrompt(options, env, prompt);
   } catch (error) {
-    await recordJournaledOperation({
-      operation: "opencode.session.start",
+    throw attachJournalMetadata(error, {
       prompt,
       sessionId: errorSessionID(error),
-      outcome: "failure",
-      startedAt,
-      endedAt: Date.now(),
-      env,
     });
-    throw error;
   }
-  const endedAt = Date.now();
   console.log(
     formatJson({
       sessionID: started.info.id,
@@ -127,17 +123,14 @@ export async function runStart(
       receipt: started.receipt,
     }),
   );
-  await recordJournaledOperation({
-    operation: "opencode.session.start",
-    prompt: started.prompt,
-    sessionId: started.info.id,
-    sessionTitle: started.info.title ?? options.title,
-    messageId: started.receipt.id,
-    outcome: "success",
-    startedAt,
-    endedAt,
-    env,
-  });
+  return {
+    metadata: {
+      prompt: started.prompt,
+      sessionId: started.info.id,
+      sessionTitle: started.info.title ?? options.title,
+      messageId: started.receipt.id,
+    },
+  };
 }
 
 /**
@@ -147,31 +140,27 @@ export async function runStart(
 export async function runSend(
   options: SendOptions,
   env: { [name: string]: string | undefined } = process.env,
-): Promise<void> {
+): Promise<CliActionOutcome> {
   const delivery: Delivery = parseDelivery(options.delivery ?? "steer");
   const prompt = await readPrompt(options.file);
   const client = await OpenCodeClient.connect(env);
-  const startedAt = Date.now();
   let receipt: SessionReceipt;
   try {
     receipt = await submitPrompt(client, options.sessionID, prompt, delivery);
   } catch (error) {
-    await recordJournaledOperation({
-      operation: "opencode.session.send",
+    const metadata: JournalMetadata = {
       prompt,
       sessionId: options.sessionID,
-      outcome: "failure",
-      startedAt,
-      endedAt: Date.now(),
-      env,
-    });
-    throw new Error(
-      `Prompt submission failed for session ${options.sessionID}: ${
-        error instanceof Error ? error.message : "unknown error"
-      }`,
+    };
+    throw attachJournalMetadata(
+      new Error(
+        `Prompt submission failed for session ${options.sessionID}: ${
+          error instanceof Error ? error.message : "unknown error"
+        }`,
+      ),
+      metadata,
     );
   }
-  const endedAt = Date.now();
   console.log(
     formatJson({
       sessionID: options.sessionID,
@@ -182,15 +171,12 @@ export async function runSend(
   const title = (await journalingEnabled(env))
     ? await bestEffortSessionTitle(client, options.sessionID)
     : undefined;
-  await recordJournaledOperation({
-    operation: "opencode.session.send",
-    prompt,
-    sessionId: options.sessionID,
-    sessionTitle: title,
-    messageId: receipt.id,
-    outcome: "success",
-    startedAt,
-    endedAt,
-    env,
-  });
+  return {
+    metadata: {
+      prompt,
+      sessionId: options.sessionID,
+      ...(title === undefined ? {} : { sessionTitle: title }),
+      messageId: receipt.id,
+    },
+  };
 }

@@ -19,7 +19,7 @@ export const cardCommand: CliCommand = {
     const cardId = argv[1];
     if (!cardId) {
       console.error('Error: Card ID required');
-      process.exit(1);
+      return 1;
     }
     const card = (await getSdk().getCard(Number(cardId))) as Card;
     const optimizedCard = optimizeCardDetails(card);
@@ -56,7 +56,7 @@ export const cardSimpleCommand: CliCommand = {
     const simpleCardId = argv[1];
     if (!simpleCardId) {
       console.error('Error: Card ID required');
-      process.exit(1);
+      return 1;
     }
     const detailedCard = (await getSdk().getCard(Number(simpleCardId))) as Card;
     const optimized = optimizeCardDetails(detailedCard);

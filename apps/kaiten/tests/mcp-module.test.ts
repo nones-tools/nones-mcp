@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import path from 'node:path';
 import type { ModuleContext } from '@nones/mcp-core';
 import { module as kaitenModule } from '@/mcp/module';
+import pkg from '../package.json' with { type: 'json' };
 
 const stateRoot = path.join(process.cwd(), '..', '..', '.tmp', 'tests');
 await mkdir(stateRoot, { recursive: true });
@@ -15,7 +16,7 @@ afterAll(async () => {
 function context(env: Record<string, string>, permissions = { destructive: false, admin: false, exec: false }): ModuleContext {
   return {
     id: 'kaiten',
-    version: '4.3.0',
+    version: pkg.version,
     config: { version: 1, enabled: true, permissions, env: {}, envFrom: {}, options: {} },
     env: Object.freeze(env),
     shared: { logLevel: 'error', moduleId: 'kaiten' },
@@ -30,8 +31,8 @@ describe('source-owned kaiten module', () => {
   it('exposes the versioned module contract without reading env at import time', () => {
     expect(kaitenModule.apiVersion).toBe(1);
     expect(kaitenModule.id).toBe('kaiten');
-    expect(kaitenModule.version).toBe('4.3.0');
-    expect(kaitenModule.host).toEqual({ name: '@nones/kaiten-mcp', version: '4.3.0' });
+    expect(kaitenModule.version).toBe(pkg.version);
+    expect(kaitenModule.host).toEqual({ name: '@nones/kaiten-mcp', version: pkg.version });
   });
 
   it('discovers every tool with optional taskSupport and does not touch process.env', async () => {

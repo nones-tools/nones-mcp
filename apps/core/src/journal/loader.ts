@@ -1,4 +1,4 @@
-import { JournalError } from "./errors";
+import { isJournalError, JournalError } from "./errors";
 import type { JournalSettings } from "./config";
 import {
   JOURNAL_API_VERSION,
@@ -72,28 +72,37 @@ async function customAdapter(
 }
 
 /**
- * Built-in SQLite lives in an optional package so core does not depend on a
- * driver. Installation is explicit; nothing is downloaded at runtime.
+ * The default plugin is a subpath of the adapter collection package. Core keeps
+ * it optional and resolves it at runtime so the core package stays embeddable
+ * with an explicitly installed or injected alternative adapter.
  */
 async function sqliteAdapter(path: string): Promise<JournalAdapter> {
-  let imported: { openSqliteJournal?: (path: string) => JournalAdapter };
+  const specifier = "@nones/journal/sqlite";
+  let imported: { default?: unknown };
   try {
     // Variable specifier keeps the optional adapter out of core's type graph.
-    const specifier = "@nones/mcp-journal-sqlite";
     imported = (await import(specifier)) as typeof imported;
   } catch (error) {
     throw new JournalError(
       "adapter",
-      "Built-in journal adapter @nones/mcp-journal-sqlite is not installed",
+      `Default journal adapter ${specifier} is not installed`,
       { cause: error },
     );
   }
-  if (typeof imported.openSqliteJournal !== "function")
+  const selected = factory(imported.default, specifier);
+  let created: unknown;
+  try {
+    created = await selected.create({ path });
+  } catch (error) {
+    // The default plugin reports actionable database/permission JournalErrors.
+    if (isJournalError(error)) throw error;
     throw new JournalError(
       "adapter",
-      "@nones/mcp-journal-sqlite does not export openSqliteJournal",
+      `Default journal adapter ${specifier} failed to create`,
+      { cause: error },
     );
-  return imported.openSqliteJournal(path);
+  }
+  return adapter(created, specifier);
 }
 
 /** Selects exactly what config requested; never silently falls back to SQLite. */

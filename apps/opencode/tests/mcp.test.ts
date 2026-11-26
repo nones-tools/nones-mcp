@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { formatJson } from "../src/json";
+import { version as packageVersion } from "../src/version";
 import { startCli, waitForMessages } from "./stdio";
 import { startStub } from "./stub";
 
@@ -64,7 +65,7 @@ test("Node stdio MCP initializes with version and pretty parity", async () => {
   const initialize = messages.find((message) => message.id === 1);
   expect(initialize?.result.serverInfo).toMatchObject({
     name: "opencode-mcp",
-    version: "0.5.0",
+    version: packageVersion,
   });
 
   const list = messages.find((message) => message.id === 2);
@@ -95,7 +96,7 @@ test("the default launch without arguments serves MCP over stdio", async () => {
   const initialize = messages.find((message) => message.id === 1);
   expect(initialize?.result.serverInfo).toMatchObject({
     name: "opencode-mcp",
-    version: "0.5.0",
+    version: packageVersion,
   });
 
   const list = messages.find((message) => message.id === 2);

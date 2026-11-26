@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { version as packageVersion } from "../src/version";
 import { waitForExit } from "./stdio";
 
 const cli = path.resolve(import.meta.dir, "..", "dist", "cli.js");
@@ -68,7 +69,7 @@ test("server start launches a synthetic managed service and proves MCP", async (
       status: "ready",
       source: "managed",
       nativeStartRequested: true,
-      mcpVersion: "0.5.0",
+      mcpVersion: packageVersion,
       readiness: "tool",
     });
     expect(result.stderr).toBe("");
