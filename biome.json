@@ -1,1 +1,18 @@
-{"$schema":"https://biomejs.dev/schemas/2.6.9/schema.json","linter":{"enabled":true,"rules":{"preset":"recommended"}}}
+{
+  "$schema": "https://biomejs.dev/schemas/2.6.9/schema.json",
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended"
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.json", "**/*.md"],
+      "formatter": {
+        "indentStyle": "space",
+        "indentWidth": 2
+      }
+    }
+  ]
+}

@@ -22,4 +22,4 @@ jobs:
       - run: bun test
       - run: npm pack --dry-run
       - run: npm pack && mkdir /tmp/opencode-mcp-smoke && cd /tmp/opencode-mcp-smoke && npm init -y && npm install "$GITHUB_WORKSPACE"/*.tgz && node node_modules/@nones/opencode-mcp/dist/cli.js help
-      - run: OPENCODE_MCP_TEST_CLI=/tmp/opencode-mcp-smoke/node_modules/@nones/opencode-mcp/dist/cli.js bun test tests/client.test.ts
+      - run: OPENCODE_MCP_TEST_CLI=/tmp/opencode-mcp-smoke/node_modules/@nones/opencode-mcp/dist/cli.js bun test tests/client.test.ts tests/cli.test.ts tests/mcp.test.ts
