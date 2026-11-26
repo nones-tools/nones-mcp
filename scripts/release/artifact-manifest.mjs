@@ -7,6 +7,14 @@ import { ReleaseError } from "./errors.mjs";
 import { readJson, readText } from "./io.mjs";
 import { SEMVER_PATTERN, tarballName, versionToTag } from "./semver.mjs";
 
+export function sha512Sri(contents) {
+  return `sha512-${createHash("sha512").update(contents).digest("base64")}`;
+}
+
+export async function tarballIntegrity(file) {
+  return sha512Sri(await readFile(file));
+}
+
 export async function readReleaseManifest({ root, outDir }) {
   const destination = path.resolve(root, outDir);
   const file = path.join(destination, "release-manifest.json");

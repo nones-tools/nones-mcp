@@ -1,11 +1,20 @@
 import path from "node:path";
 import { DEFAULT_REGISTRY, DEFAULT_STAGING_DIST_TAG, PACKAGES } from "./constants.mjs";
 import { ReleaseError } from "./errors.mjs";
-import { readArtifactCommit, readReleaseManifest } from "./artifact-manifest.mjs";
+import {
+  readArtifactCommit,
+  readReleaseManifest,
+  tarballIntegrity,
+} from "./artifact-manifest.mjs";
 import { verifyTag } from "./git.mjs";
 import { validateManifests } from "./manifests.mjs";
 import { ensureStagingTags, promoteLatest } from "./promotion.mjs";
-import { isPublishConflict, publishedVersionExists, waitForPublished } from "./registry.mjs";
+import {
+  assertRegistryIntegrity,
+  isPublishConflict,
+  publishedVersionExists,
+  waitForRegistryIntegrity,
+} from "./registry.mjs";
 import { createLogger, defaultExec } from "./runner.mjs";
 import { tagToVersion } from "./semver.mjs";
 
@@ -74,6 +83,14 @@ export async function publishRelease({
   }
 
   const options = { exec, registry, root, waitAttempts, waitDelayMs, promoteLatest: shouldPromoteLatest };
+  const localIntegrity = new Map();
+  for (const entry of ordered) {
+    localIntegrity.set(
+      entry.name,
+      await tarballIntegrity(path.join(manifest.outDir, entry.tarball)),
+    );
+  }
+
   const state = new Map();
   for (const entry of ordered) {
     const exists = await publishedVersionExists(entry.name, entry.version, {
@@ -82,7 +99,17 @@ export async function publishRelease({
       cwd: root,
     });
     state.set(entry.name, { exists });
-    log.info(`${entry.name}@${entry.version}: ${exists ? "already published" : "needs publish"}`);
+    if (exists) {
+      await assertRegistryIntegrity(
+        entry.name,
+        entry.version,
+        localIntegrity.get(entry.name),
+        options,
+      );
+      log.info(`${entry.name}@${entry.version}: already published, integrity verified`);
+    } else {
+      log.info(`${entry.name}@${entry.version}: needs publish`);
+    }
   }
 
   for (const entry of ordered) {
@@ -116,11 +143,23 @@ export async function publishRelease({
       if (!nowExists) throw error;
       log.info(`${entry.name}@${entry.version} appeared during publish; continuing`);
     }
-    await waitForPublished(entry.name, entry.version, options);
+    await waitForRegistryIntegrity(
+      entry.name,
+      entry.version,
+      localIntegrity.get(entry.name),
+      options,
+    );
   }
 
-  for (const entry of ordered) await waitForPublished(entry.name, entry.version, options);
-  log.info(`all ${ordered.length} exact versions are present in the registry`);
+  for (const entry of ordered) {
+    await waitForRegistryIntegrity(
+      entry.name,
+      entry.version,
+      localIntegrity.get(entry.name),
+      options,
+    );
+  }
+  log.info(`all ${ordered.length} exact versions and dist.integrity values are verified`);
 
   await ensureStagingTags(ordered, distTag, options, log);
   const latest = await promoteLatest(ordered, parsed.version, options, log);

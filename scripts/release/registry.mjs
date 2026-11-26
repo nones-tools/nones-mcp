@@ -44,6 +44,68 @@ export async function publishedVersionExists(
   }
 }
 
+export async function getVersionIntegrity(
+  name,
+  version,
+  { exec = defaultExec, registry = DEFAULT_REGISTRY, cwd } = {},
+) {
+  try {
+    const result = await npmView(
+      [`${name}@${version}`, "dist.integrity"],
+      { exec, registry, cwd },
+    );
+    const text = result.stdout.trim();
+    if (!text) return null;
+    let value = text;
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed === null || typeof parsed !== "string") return null;
+      value = parsed;
+    } catch {
+      // npm may emit the raw SRI instead of a JSON string.
+    }
+    return value.startsWith("sha512-") ? value : null;
+  } catch (error) {
+    if (isNotFoundError(error)) return null;
+    throw error;
+  }
+}
+
+function integrityMismatch(name, version, expected, actual) {
+  return new ReleaseError(
+    `Integrity mismatch for ${name}@${version}: local immutable tarball is ${expected}, ` +
+      `registry dist.integrity is ${actual}. npm versions are immutable and cannot be overwritten.`,
+  );
+}
+
+export async function assertRegistryIntegrity(name, version, expected, options = {}) {
+  const actual = await getVersionIntegrity(name, version, options);
+  if (!actual) {
+    throw new ReleaseError(
+      `${name}@${version} has no registry dist.integrity; refusing to skip an existing ` +
+        `version without byte-for-byte proof of the local immutable tarball`,
+    );
+  }
+  if (actual !== expected) throw integrityMismatch(name, version, expected, actual);
+  return actual;
+}
+
+export async function waitForRegistryIntegrity(name, version, expected, options = {}) {
+  const attempts = options.waitAttempts ?? 12;
+  const delay = options.waitDelayMs ?? 5000;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const actual = await getVersionIntegrity(name, version, options);
+    if (actual !== null && actual !== expected) {
+      throw integrityMismatch(name, version, expected, actual);
+    }
+    if (actual === expected) return true;
+    if (attempt < attempts) await sleep(delay);
+  }
+  throw new ReleaseError(
+    `${name}@${version} has no registry dist.integrity after publishing; refusing to continue`,
+  );
+}
+
 export async function waitForPublished(name, version, options = {}) {
   const attempts = options.waitAttempts ?? 12;
   const delay = options.waitDelayMs ?? 5000;

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import { PACKAGES } from "./constants.mjs";
+import { tarballIntegrity } from "./artifact-manifest.mjs";
 
 function notFound() {
   const error = new Error("npm error code E404\nnpm error 404 Not Found");
@@ -21,7 +22,7 @@ export function parseSpecifier(specifier) {
   return { name: specifier.slice(0, index), version: specifier.slice(index + 1) };
 }
 
-export function npmMock({ published = {}, latest = {}, hooks = {} } = {}) {
+export function npmMock({ published = {}, latest = {}, integrities = {}, hooks = {} } = {}) {
   const registry = new Map();
   const tags = new Map();
   for (const name of Object.keys(published)) {
@@ -35,6 +36,16 @@ export function npmMock({ published = {}, latest = {}, hooks = {} } = {}) {
     if (!registry.has(entry.name)) registry.set(entry.name, new Set());
     if (!tags.has(entry.name)) tags.set(entry.name, {});
   }
+
+  const integrityFor = async (name, version) => {
+    const override = integrities[name]?.[version];
+    if (override !== undefined) return override;
+    const entry = hooks.manifest?.packages.find((candidate) => candidate.name === name);
+    if (entry?.version === version && hooks.manifest.outDir) {
+      return tarballIntegrity(path.join(hooks.manifest.outDir, entry.tarball));
+    }
+    return null;
+  };
 
   const calls = [];
   const exec = async (command, args, options = {}) => {
@@ -53,6 +64,11 @@ export function npmMock({ published = {}, latest = {}, hooks = {} } = {}) {
         const { name, version } = parseSpecifier(target);
         if (!registry.get(name)?.has(version)) throw notFound();
         return { stdout: JSON.stringify(version), stderr: "", code: 0 };
+      }
+      if (field === "dist.integrity") {
+        const { name, version } = parseSpecifier(target);
+        if (!registry.get(name)?.has(version)) throw notFound();
+        return { stdout: JSON.stringify(await integrityFor(name, version)), stderr: "", code: 0 };
       }
     }
     if (subcommand === "publish") {

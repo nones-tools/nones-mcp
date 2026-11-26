@@ -150,7 +150,7 @@ export async function makeReleaseFiles(root, tag = "v5.0.0") {
     `${packages.map((entry) => `${entry.sha256}  ${entry.tarball}`).join("\n")}\n`,
   );
   await writeFile(path.join(outDir, "release-commit.txt"), `${TEST_COMMIT}\n`);
-  return { outDir, manifest };
+  return { outDir, manifest: { ...manifest, outDir } };
 }
 
 export async function cleanup(root) {
