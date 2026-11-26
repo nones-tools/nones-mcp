@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import path from "node:path";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile, stat, writeFile } from "node:fs/promises";
 import test from "node:test";
 import { PACKAGES } from "./constants.mjs";
 import { cleanup, makeFixture, makeReleaseFiles, silent, TEST_COMMIT } from "./fixtures.mjs";
 import { readReleaseManifest } from "./artifact-manifest.mjs";
-import { packRelease } from "./pack.mjs";
+import { declaredEntryPaths, packRelease } from "./pack.mjs";
 import { tarballName } from "./semver.mjs";
 import { verifyInstall } from "./install.mjs";
 
@@ -29,9 +29,13 @@ test("pack uses --ignore-scripts, writes checksums and verifies the exact tarbal
       const destination = args[args.indexOf("--pack-destination") + 1];
       const pkg = manifestNames.get(path.relative(root, options.cwd));
       const filename = tarballName(pkg.name, "5.0.0");
-      await mkdir(destination, { recursive: true });
+      const destinationInfo = await stat(destination).catch(() => null);
+      assert.ok(
+        destinationInfo?.isDirectory(),
+        "pack must create a missing --pack-destination before npm pack runs",
+      );
       await writeFile(path.join(destination, filename), `packed:${pkg.name}\n`);
-      const files = [{ path: "dist/index.js" }, { path: "dist/index.d.ts" }];
+      const files = declaredEntryPaths(pkg).map((file) => ({ path: file }));
       for (const target of Object.values(pkg.bin ?? {})) {
         files.push({ path: target.replace(/^\.\//, "") });
       }
@@ -52,6 +56,10 @@ test("pack uses --ignore-scripts, writes checksums and verifies the exact tarbal
   });
   assert.equal(manifest.packages.length, PACKAGES.length);
   assert.equal(manifest.commit, TEST_COMMIT);
+  assert.deepEqual(declaredEntryPaths(manifestNames.get("adapters/journal")), [
+    "dist/sqlite/index.d.ts",
+    "dist/sqlite/index.js",
+  ]);
   const packCalls = calls.filter((call) => call.args[0] === "pack");
   assert.equal(packCalls.length, PACKAGES.length);
   assert.ok(packCalls.every((call) => call.args.includes("--ignore-scripts")));
@@ -90,4 +98,50 @@ test("verifyInstall passes only the exact released tarballs", async (t) => {
   const nodeCheck = calls.find((call) => call.command === process.execPath);
   assert.ok(nodeCheck);
   assert.match(nodeCheck.args.at(-1), /install smoke passed/);
+  assert.match(nodeCheck.args.at(-1), /"@nones\/journal\/sqlite"/);
+  assert.match(nodeCheck.args.at(-1), /"imports":\["@nones\/journal\/sqlite"\]/);
+});
+
+test("pack rejects a tarball that omits a declared subpath entry", async (t) => {
+  const root = await makeFixture("5.0.0");
+  t.after(() => cleanup(root));
+  const outDir = path.join(root, "missing", "parent", "release");
+  const exec = async (command, args, options = {}) => {
+    if (command === process.execPath) return { stdout: "", stderr: "", code: 0 };
+    assert.equal(command, "npm");
+    if (args[0] === "install") return { stdout: "", stderr: "", code: 0 };
+    assert.equal(args[0], "pack");
+    const destination = args[args.indexOf("--pack-destination") + 1];
+    const pkg = JSON.parse(
+      await readFile(path.join(options.cwd, "package.json"), "utf8"),
+    );
+    const filename = tarballName(pkg.name, "5.0.0");
+    await writeFile(path.join(destination, filename), `packed:${pkg.name}\n`);
+    const files = declaredEntryPaths(pkg)
+      .filter((file) => pkg.name !== "@nones/journal" || file !== "dist/sqlite/index.d.ts")
+      .map((file) => ({ path: file }));
+    for (const target of Object.values(pkg.bin ?? {})) {
+      files.push({ path: target.replace(/^\.\//, "") });
+    }
+    return { stdout: JSON.stringify([{ filename, files }]), stderr: "", code: 0 };
+  };
+  await assert.rejects(
+    packRelease({
+      root,
+      tag: "v5.0.0",
+      outDir,
+      commit: TEST_COMMIT,
+      installSmoke: false,
+      exec,
+      logger: silent,
+    }),
+    /@nones\/journal tarball is missing declared entry dist\/sqlite\/index\.d\.ts/,
+  );
+});
+
+test("declaredEntryPaths refuses a package with no public entry", () => {
+  assert.throws(
+    () => declaredEntryPaths({ name: "@nones/empty" }),
+    /declares no main, types or exports entry paths/,
+  );
 });

@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { DEFAULT_REGISTRY, PACKAGES } from "./constants.mjs";
+import { DEFAULT_REGISTRY, INSTALL_SMOKE_IMPORTS, PACKAGES } from "./constants.mjs";
 import { formatJson } from "./io.mjs";
 import { readReleaseManifest } from "./artifact-manifest.mjs";
 import { createLogger, defaultExec } from "./runner.mjs";
@@ -11,6 +11,7 @@ function installSmokeScript(manifest) {
     name: entry.name,
     dir: PACKAGES.find((spec) => spec.name === entry.name).dir,
     version: entry.version,
+    imports: INSTALL_SMOKE_IMPORTS[entry.name] ?? [entry.name],
   }));
   return `
 import { readFileSync, existsSync, statSync } from "node:fs";
@@ -29,7 +30,13 @@ for (const item of expected) {
     const linkUrl = new URL("./node_modules/.bin/" + bin, import.meta.url);
     if (!existsSync(linkUrl)) throw new Error(item.name + " has no .bin/" + bin);
   }
-  await import(item.name);
+  for (const specifier of item.imports) {
+    const subpath = specifier === item.name ? "." : "./" + specifier.slice(item.name.length + 1);
+    if (!pkg.exports || typeof pkg.exports !== "object" || !(subpath in pkg.exports)) {
+      throw new Error(item.name + " does not declare export " + subpath + " for " + specifier);
+    }
+    await import(specifier);
+  }
 }
 console.log("install smoke passed");
 `;

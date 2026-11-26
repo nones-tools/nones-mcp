@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { DEFAULT_REGISTRY, PACKAGES } from "./constants.mjs";
 import { ReleaseError } from "./errors.mjs";
@@ -24,11 +24,35 @@ function parsePackReport(stdout) {
   return reports[0];
 }
 
+/**
+ * Entry files a consumer can reach through package.json: main, types and every
+ * string leaf of exports (public subpaths such as ./sqlite). Hardcoding
+ * dist/index.* breaks packages that only publish an adapter subpath.
+ */
+export function declaredEntryPaths(pkg) {
+  const paths = new Set();
+  const add = (value) => {
+    if (typeof value === "string" && value.length > 0) paths.add(value.replace(/^\.\//, ""));
+  };
+  const visit = (value) => {
+    if (typeof value === "string") add(value);
+    else if (Array.isArray(value)) value.forEach(visit);
+    else if (value && typeof value === "object") for (const nested of Object.values(value)) visit(nested);
+  };
+  add(pkg.main);
+  add(pkg.types);
+  visit(pkg.exports);
+  if (paths.size === 0) {
+    throw new ReleaseError(`${pkg.name} declares no main, types or exports entry paths`);
+  }
+  return [...paths].sort();
+}
+
 function assertPackedFiles(entry, pkg, report) {
   const paths = new Set((report.files ?? []).map((file) => file.path));
-  for (const required of ["dist/index.js", "dist/index.d.ts"]) {
+  for (const required of declaredEntryPaths(pkg)) {
     if (!paths.has(required)) {
-      throw new ReleaseError(`${entry.name} tarball is missing ${required}`);
+      throw new ReleaseError(`${entry.name} tarball is missing declared entry ${required}`);
     }
   }
   for (const file of paths) {
@@ -69,6 +93,9 @@ export async function packRelease({
   const validated = await validateManifests({ root, version: parsed.version });
   const destination = path.resolve(root, outDir ?? path.join(".tmp", "release", parsed.tag));
   const sourceCommit = await resolveCommit({ root, commit, skipCommit, exec });
+  // npm pack writes the tarball itself and fails with ENOENT when the
+  // --pack-destination parent does not exist yet.
+  await mkdir(destination, { recursive: true });
 
   const packages = [];
   for (const entry of validated.packages) {

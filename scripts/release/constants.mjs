@@ -32,4 +32,13 @@ export const REQUIRED_BINS = Object.freeze({
   "@nones/opencode-mcp": ["opencode-mcp", "oc2-mcp"],
 });
 
+/**
+ * Import specifiers exercised by the install smoke. Package roots are used by
+ * default; an adapter-only package must name its public subpath explicitly so
+ * the smoke never imports an undeclared root (e.g. @nones/journal has no ".").
+ */
+export const INSTALL_SMOKE_IMPORTS = Object.freeze({
+  "@nones/journal": Object.freeze(["@nones/journal/sqlite"]),
+});
+
 export const NPM_NAME_PATTERN = /^@[a-z0-9][a-z0-9._~-]*\/[a-z0-9][a-z0-9._~-]*$/;

@@ -1,8 +1,11 @@
 name: release
 
 # One immutable root tag releases all four public workspaces from the same commit.
-# Bootstrap is not blocked by npm trust: build, checks, checksums, artifact and
-# GitHub release run while the npm job is gated off by NPM_TRUSTED_PUBLISHER_ENABLED.
+# The build job runs release tooling from the workflow commit (main for
+# workflow_dispatch) but packs and validates the checked-out tag source, so a
+# published tag never needs to move. Bootstrap is not blocked by npm trust:
+# build, checks, checksums, artifact and GitHub release run while the npm job is
+# gated off by NPM_TRUSTED_PUBLISHER_ENABLED.
 on:
   push:
     tags: ["v*"]
@@ -42,11 +45,32 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
           fetch-depth: 0
+      - name: Stage release tooling from workflow commit
+        env:
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+        run: |
+          set -euo pipefail
+          tooling="$RUNNER_TEMP/release-tooling"
+          rm -rf "$tooling"
+          mkdir -p "$tooling"
+          if ! git cat-file -e "${WORKFLOW_SHA}^{commit}" 2>/dev/null; then
+            git fetch --no-tags origin main || true
+          fi
+          if ! git cat-file -e "${WORKFLOW_SHA}^{commit}" 2>/dev/null; then
+            git fetch --no-tags origin "$WORKFLOW_SHA"
+          fi
+          commit="$(git rev-parse "${WORKFLOW_SHA}^{commit}")"
+          git archive --format=tar "$commit" | tar -x -C "$tooling"
+          test -f "$tooling/scripts/release.mjs"
+          test -f "$tooling/scripts/release.test.mjs"
+          test -f "$tooling/scripts/release/pack.mjs"
+          echo "RELEASE_TOOLING=$tooling" >> "$GITHUB_ENV"
+          echo "Release tooling from $commit; package source remains $GITHUB_WORKSPACE"
       - name: Resolve release tag
         id: tag
         env:
           REQUESTED_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
-        run: bash scripts/release/ci/resolve-tag.sh "$REQUESTED_TAG"
+        run: bash "$RUNNER_TEMP/release-tooling/scripts/release/ci/resolve-tag.sh" "$REQUESTED_TAG"
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.5
@@ -61,15 +85,23 @@ jobs:
       - name: Fetch main
         run: git fetch --no-tags origin main:refs/remotes/origin/main
       - name: Verify tag, manifests and main ancestry
-        run: node scripts/release.mjs verify-tag --tag "${{ steps.tag.outputs.tag }}" --main-ref origin/main
+        run: >-
+          node "$RELEASE_TOOLING/scripts/release.mjs" verify-tag
+          --tag "${{ steps.tag.outputs.tag }}"
+          --main-ref origin/main
+          --root "$GITHUB_WORKSPACE"
       - name: Install
         run: bun install --frozen-lockfile
       - name: Release tooling tests
-        run: node --test scripts/release.test.mjs
+        run: node --test "$RELEASE_TOOLING/scripts/release.test.mjs"
       - name: Canonical checks
         run: bun run verify
       - name: Pack without scripts and install-smoke exact tarballs
-        run: node scripts/release.mjs pack --tag "${{ steps.tag.outputs.tag }}" --out "$RUNNER_TEMP/release"
+        run: >-
+          node "$RELEASE_TOOLING/scripts/release.mjs" pack
+          --tag "${{ steps.tag.outputs.tag }}"
+          --out "$RUNNER_TEMP/release"
+          --root "$GITHUB_WORKSPACE"
       - name: Record verified commit
         run: printf '%s\n' "${{ steps.tag.outputs.commit }}" > "$RUNNER_TEMP/release/release-commit.txt"
       - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
