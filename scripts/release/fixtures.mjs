@@ -32,6 +32,7 @@ const COPY_FILES = [
   "apps/core/package.json",
   "apps/kaiten/package.json",
   "apps/opencode/package.json",
+  "apps/dsh/package.json",
 ];
 
 function renameDependency(pkg, deprecated, replacement) {

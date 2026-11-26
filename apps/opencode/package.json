@@ -1,6 +1,6 @@
 {
   "name": "@nones/opencode-mcp",
-  "version": "5.0.0",
+  "version": "5.1.0",
   "type": "module",
   "description": "MCP server, session CLI, and SDK for an existing OpenCode service",
   "license": "MIT",
@@ -51,8 +51,8 @@
   "dependencies": {
     "@modelcontextprotocol/client": "2.4.0",
     "@modelcontextprotocol/server": "2.4.0",
-    "@nones/journal": "5.0.0",
-    "@nones/mcp-core": "5.0.0",
+    "@nones/journal": "5.1.0",
+    "@nones/mcp-core": "5.1.0",
     "@opencode/client": "2.4.2",
     "commander": "15.1.0",
     "zod": "4.6.7"

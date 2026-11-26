@@ -97,7 +97,7 @@ test("publish resumes a partial release when existing versions match local integ
   t.after(() => cleanup(root));
   const { outDir, manifest } = await makeReleaseFiles(root);
   const existing = ["@nones/mcp-core", "@nones/journal"];
-  const missing = ["@nones/kaiten-mcp", "@nones/opencode-mcp"];
+  const missing = ["@nones/kaiten-mcp", "@nones/opencode-mcp", "@nones/dsh-session-mcp"];
   const mock = npmMock({
     published: publishedVersions(existing),
     latest: Object.fromEntries(existing.map((name) => [name, "5.0.0"])),
@@ -119,6 +119,7 @@ test("publish resumes a partial release when existing versions match local integ
   assert.deepEqual(result.packages.map((entry) => entry.action), [
     "skip-existing",
     "skip-existing",
+    "published",
     "published",
     "published",
   ]);

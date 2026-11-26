@@ -1,6 +1,6 @@
 name: release
 
-# One immutable root tag releases all four public workspaces from the same commit.
+# One immutable root tag releases all five public workspaces from the same commit.
 # The build job runs release tooling from the workflow commit (main for
 # workflow_dispatch) but packs and validates the checked-out tag source, so a
 # published tag never needs to move. Bootstrap is not blocked by npm trust:

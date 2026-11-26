@@ -20,24 +20,27 @@
 
 The canonical source is the public monorepo
 [`nones-tools/nones-mcp`](https://github.com/nones-tools/nones-mcp). It holds
-four packages that are developed and tested together.
+five packages that are developed and tested together.
 
 | Package | Workspace | Role |
 | --- | --- | --- |
 | [`@nones/mcp-core`](https://github.com/nones-tools/nones-mcp/tree/main/apps/core) | `apps/core` | Command registration, runtime and journal orchestration across all MCPs; the single `nones-mcp` stdio entry |
 | [`@nones/kaiten-mcp`](https://github.com/nones-tools/nones-mcp/tree/main/apps/kaiten) | `apps/kaiten` | Kaiten MCP server with 58 tools for boards, cards, checklists and comments, plus the `kaiten` CLI and a typed SDK |
 | [`@nones/opencode-mcp`](https://github.com/nones-tools/nones-mcp/tree/main/apps/opencode) | `apps/opencode` | OpenCode 2 MCP server, session CLI and TypeScript SDK |
+| [`@nones/dsh-session-mcp`](https://github.com/nones-tools/nones-mcp/tree/main/apps/dsh) | `apps/dsh` | DeepSeek Harness Cordis bundle with a bearer-authenticated loopback MCP endpoint for live Harness sessions |
 | [`@nones/journal`](https://github.com/nones-tools/nones-mcp/tree/main/adapters/journal) | `adapters/journal` | Journal adapter implementations, including the built-in SQLite adapter at `@nones/journal/sqlite` |
 
 Each server still ships and works on its own: existing `kaiten` and
 `opencode-mcp` registrations, bins, exports and configuration remain valid.
-The monorepo adds the option to run both through `nones-mcp`.
+The monorepo adds the option to run both through `nones-mcp`; the DeepSeek
+Harness bundle remains an in-Harness Cordis plugin.
 
-## The 5.0.0 architecture
+## The 5.1.0 architecture
 
-In the 5.0.0 line, `@nones/mcp-core` is the runtime for the whole suite, not a
+In the 5.1.0 line, `@nones/mcp-core` is the runtime for the whole suite, not a
 thin wrapper around one app. It owns command registration, the module runtime,
-configuration loading and journal orchestration across every MCP. Kaiten and
+configuration loading and journal orchestration across every MCP — including
+the in-Harness DeepSeek bundle. Kaiten and
 OpenCode expose their tools through that shared contract, so the aggregated
 `nones-mcp` entry and the standalone servers run the same code paths.
 

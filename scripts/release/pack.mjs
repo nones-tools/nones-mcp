@@ -48,11 +48,27 @@ export function declaredEntryPaths(pkg) {
   return [...paths].sort();
 }
 
-function assertPackedFiles(entry, pkg, report) {
+export function assertPackedFiles(entry, pkg, report) {
   const paths = new Set((report.files ?? []).map((file) => file.path));
   for (const required of declaredEntryPaths(pkg)) {
-    if (!paths.has(required)) {
-      throw new ReleaseError(`${entry.name} tarball is missing declared entry ${required}`);
+    if (!required.includes("*")) {
+      if (!paths.has(required)) {
+        throw new ReleaseError(`${entry.name} tarball is missing declared entry ${required}`);
+      }
+      continue;
+    }
+    // Wildcard export targets (`./locale/*.json`) must match at least one real
+    // packed file; the literal star is never a tarball path.
+    const pattern = new RegExp(
+      `^${required
+        .split("*")
+        .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+        .join("[^/]*")}$`,
+    );
+    if (![...paths].some((file) => pattern.test(file))) {
+      throw new ReleaseError(
+        `${entry.name} tarball has no packed file matching declared entry ${required}`,
+      );
     }
   }
   for (const file of paths) {

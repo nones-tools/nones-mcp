@@ -19,17 +19,18 @@ for (const key of Object.keys(env)) {
   if (key.startsWith("KAITEN_") || key.startsWith("OPENCODE_")) delete env[key];
 }
 
-const suites: Array<{ cwd: string; args: string[] }> = [
+const suites: Array<{ cwd: string; command?: string; args: string[] }> = [
   { cwd: root, args: ["test", "apps/core/test"] },
   { cwd: path.join(root, "apps/kaiten"), args: ["test"] },
   { cwd: path.join(root, "apps/opencode"), args: ["test"] },
   { cwd: path.join(root, "adapters/journal"), args: ["test"] },
+  { cwd: path.join(root, "apps/dsh"), command: process.execPath, args: ["test/smoke.mjs"] },
 ];
 
 for (const suite of suites) {
   const label = path.relative(root, suite.cwd) || "core";
   console.log(`\n=== tests: ${label} ===`);
-  const result = spawnSync("bun", suite.args, {
+  const result = spawnSync(suite.command ?? "bun", suite.args, {
     cwd: suite.cwd,
     env,
     stdio: "inherit",

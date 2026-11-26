@@ -42,7 +42,7 @@ test("version writes a stale root version even when root @nones deps are unchang
   }
 });
 
-test("version synchronizes root, all four workspaces, dependencies and bun.lock", async (t) => {
+test("version synchronizes root, all five workspaces, dependencies and bun.lock", async (t) => {
   // Start from a stale released state so the 5.0.0 synchronization is observable.
   const root = await makeFixture("4.9.0");
   t.after(() => cleanup(root));
@@ -138,5 +138,6 @@ test("SemVer comparison and prerelease detection are deterministic", () => {
     "@nones/journal",
     "@nones/kaiten-mcp",
     "@nones/opencode-mcp",
+    "@nones/dsh-session-mcp",
   ]);
 });

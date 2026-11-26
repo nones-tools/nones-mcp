@@ -16,6 +16,7 @@
  * @module dsh-session-mcp
  */
 import { readFileSync } from 'node:fs'
+import { journalSinkFor } from '@nones/mcp-core'
 import {
   clientConfig,
   CONFIG_ROUTE_PATH,
@@ -103,6 +104,7 @@ export async function apply(ctx: PluginContext, config?: Config): Promise<void> 
   let token = stored?.token ?? createToken()
   const createdAt = stored?.createdAt ?? new Date().toISOString()
   const journal = new RequestJournal()
+  const sink = journalSinkFor({ env: process.env, cwd: process.cwd() })
 
   /** Port the user last chose; it wins over the row config on restart. */
   let preferredPort = stored?.preferredPort ?? configuredPort
@@ -115,6 +117,7 @@ export async function apply(ctx: PluginContext, config?: Config): Promise<void> 
     version,
     logger: ctx.logger,
     journal,
+    sink,
   })
 
   /** Persist the current facts and the chosen port. */
@@ -139,7 +142,6 @@ export async function apply(ctx: PluginContext, config?: Config): Promise<void> 
   ctx.logger?.info?.(`dsh-session-mcp: MCP endpoint listening at ${endpoint.url}`)
   ctx.logger?.info?.(`dsh-session-mcp: bearer token and client config in ${file}`)
   console.log(`dsh-session-mcp: ${endpoint.url} (bearer in ${file})`)
-  console.log(JSON.stringify(clientConfig(endpoint.url, token), null, 2))
 
   /** Resolve conversation titles for the journalled calls, best effort. */
   const titlesFor = async (ids: readonly string[]): Promise<Map<string, string | null>> => {
@@ -202,6 +204,7 @@ export async function apply(ctx: PluginContext, config?: Config): Promise<void> 
         version,
         logger: ctx.logger,
         journal,
+        sink,
         // The user named a port: never silently bind a random one instead.
         allowFallback: false,
       })
@@ -214,6 +217,7 @@ export async function apply(ctx: PluginContext, config?: Config): Promise<void> 
         version,
         logger: ctx.logger,
         journal,
+        sink,
       })
       throw error
     }
@@ -282,6 +286,7 @@ export async function apply(ctx: PluginContext, config?: Config): Promise<void> 
   ctx.effect(
     () => () => {
       void endpoint.close()
+      void sink.close()
     },
     'dsh-session-mcp: endpoint lifetime',
   )

@@ -1,6 +1,6 @@
 {
   "name": "@nones/kaiten-mcp",
-  "version": "5.0.0",
+  "version": "5.1.0",
   "type": "module",
   "description": "MCP server, CLI and typed SDK for the Kaiten API",
   "license": "MIT",
@@ -51,8 +51,8 @@
   "author": "Anton",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@nones/journal": "5.0.0",
-    "@nones/mcp-core": "5.0.0",
+    "@nones/journal": "5.1.0",
+    "@nones/mcp-core": "5.1.0",
     "inversify": "^8.2.1",
     "reflect-metadata": "^0.2.2",
     "zod": "^4.4.3"

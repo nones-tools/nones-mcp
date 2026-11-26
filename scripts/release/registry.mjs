@@ -90,9 +90,14 @@ export async function assertRegistryIntegrity(name, version, expected, options =
   return actual;
 }
 
+export const DEFAULT_REGISTRY_WAIT_ATTEMPTS = 120;
+export const DEFAULT_REGISTRY_WAIT_DELAY_MS = 5000;
+
 export async function waitForRegistryIntegrity(name, version, expected, options = {}) {
-  const attempts = options.waitAttempts ?? 12;
-  const delay = options.waitDelayMs ?? 5000;
+  // npm can accept a publish with HTTP 202 while the version/SRI stays invisible
+  // for several minutes. Keep a ~10 minute fail-closed window for that case.
+  const attempts = options.waitAttempts ?? DEFAULT_REGISTRY_WAIT_ATTEMPTS;
+  const delay = options.waitDelayMs ?? DEFAULT_REGISTRY_WAIT_DELAY_MS;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     const actual = await getVersionIntegrity(name, version, options);
     if (actual !== null && actual !== expected) {
@@ -107,8 +112,8 @@ export async function waitForRegistryIntegrity(name, version, expected, options 
 }
 
 export async function waitForPublished(name, version, options = {}) {
-  const attempts = options.waitAttempts ?? 12;
-  const delay = options.waitDelayMs ?? 5000;
+  const attempts = options.waitAttempts ?? DEFAULT_REGISTRY_WAIT_ATTEMPTS;
+  const delay = options.waitDelayMs ?? DEFAULT_REGISTRY_WAIT_DELAY_MS;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     if (await publishedVersionExists(name, version, options)) return true;
     if (attempt < attempts) await sleep(delay);

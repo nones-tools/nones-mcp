@@ -5,7 +5,7 @@ import test from "node:test";
 import { PACKAGES } from "./constants.mjs";
 import { cleanup, makeFixture, makeReleaseFiles, silent, TEST_COMMIT } from "./fixtures.mjs";
 import { readReleaseManifest } from "./artifact-manifest.mjs";
-import { declaredEntryPaths, packRelease } from "./pack.mjs";
+import { assertPackedFiles, declaredEntryPaths, packRelease } from "./pack.mjs";
 import { tarballName } from "./semver.mjs";
 import { verifyInstall } from "./install.mjs";
 
@@ -35,7 +35,13 @@ test("pack uses --ignore-scripts, writes checksums and verifies the exact tarbal
         "pack must create a missing --pack-destination before npm pack runs",
       );
       await writeFile(path.join(destination, filename), `packed:${pkg.name}\n`);
-      const files = declaredEntryPaths(pkg).map((file) => ({ path: file }));
+      const files = declaredEntryPaths(pkg)
+        .flatMap((file) =>
+          file.includes("*")
+            ? [file.replace("*", "en"), file.replace("*", "ru")]
+            : [file],
+        )
+        .map((file) => ({ path: file }));
       for (const target of Object.values(pkg.bin ?? {})) {
         files.push({ path: target.replace(/^\.\//, "") });
       }
@@ -143,5 +149,30 @@ test("declaredEntryPaths refuses a package with no public entry", () => {
   assert.throws(
     () => declaredEntryPaths({ name: "@nones/empty" }),
     /declares no main, types or exports entry paths/,
+  );
+});
+
+test("wildcard export targets must match real packed locale files", async (t) => {
+  const root = await makeFixture("5.0.0");
+  t.after(() => cleanup(root));
+  const pkg = JSON.parse(
+    await readFile(path.join(root, "apps/dsh/package.json"), "utf8"),
+  );
+  const entries = declaredEntryPaths(pkg);
+  assert.ok(entries.includes("locale/*.json"));
+  const files = entries
+    .flatMap((file) => (file.includes("*") ? [file.replace("*", "en")] : [file]))
+    .map((path) => ({ path }));
+  assert.doesNotThrow(() =>
+    assertPackedFiles({ name: pkg.name }, pkg, { files }),
+  );
+  assert.throws(
+    () =>
+      assertPackedFiles(
+        { name: pkg.name },
+        pkg,
+        { files: files.filter((file) => !file.path.startsWith("locale/")) },
+      ),
+    /no packed file matching declared entry locale\/\*\.json/,
   );
 });

@@ -58,19 +58,23 @@ test("publish continues a partial release without overwriting and never downgrad
     publishCalls.map(
       (call) => manifest.packages.find((entry) => call.args[1].endsWith(entry.tarball)).name,
     ),
-    ["@nones/kaiten-mcp", "@nones/opencode-mcp"],
+    ["@nones/kaiten-mcp", "@nones/opencode-mcp", "@nones/dsh-session-mcp"],
   );
   assert.ok(publishCalls.every((call) => call.args.includes("--ignore-scripts")));
   assert.ok(publishCalls.every((call) => call.args.includes("--provenance")));
   assert.deepEqual(
     result.packages.map((entry) => entry.action),
-    ["skip-existing", "skip-existing", "published", "published"],
+    ["skip-existing", "skip-existing", "published", "published", "published"],
   );
 
   const latestAdds = mock.calls
     .filter((call) => call.args[0] === "dist-tag" && call.args[3] === "latest")
     .map((call) => call.args[2].slice(0, call.args[2].lastIndexOf("@")));
-  assert.deepEqual(latestAdds, ["@nones/journal", "@nones/opencode-mcp"]);
+  assert.deepEqual(latestAdds, [
+    "@nones/journal",
+    "@nones/opencode-mcp",
+    "@nones/dsh-session-mcp",
+  ]);
   assert.equal(mock.tags.get("@nones/kaiten-mcp").latest, "9.9.9");
   assert.equal(mock.tags.get("@nones/mcp-core").latest, "5.0.0");
 });
@@ -128,11 +132,12 @@ test("publish failure propagates and a later run resumes the partial release", a
     resumed.calls
       .filter((call) => call.args[0] === "publish")
       .map((call) => manifest.packages.find((entry) => call.args[1].endsWith(entry.tarball)).name),
-    ["@nones/kaiten-mcp", "@nones/opencode-mcp"],
+    ["@nones/kaiten-mcp", "@nones/opencode-mcp", "@nones/dsh-session-mcp"],
   );
   assert.deepEqual(result.packages.map((entry) => entry.action), [
     "skip-existing",
     "skip-existing",
+    "published",
     "published",
     "published",
   ]);

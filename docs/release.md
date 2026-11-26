@@ -3,11 +3,12 @@
 ## Single source of truth
 
 `.github/workflows/release.yml` is the only release workflow for this monorepo.
-The old nested workflows under `apps/kaiten/.github/` and `apps/opencode/.github/`
-are superseded legacy release paths; do not use them for a coordinated release.
-Repository owners handle disabling or removing those old workflow settings.
+The old nested workflows under `apps/kaiten/.github/`, `apps/opencode/.github/`
+and `apps/dsh/.github/` are superseded legacy release paths; they must not be
+used or restored for a coordinated release. This worktree removes the tracked
+DSH workflow and keeps the app in the universal root workflow.
 
-One immutable root tag, `vX.Y.Z`, releases all four public workspaces from the
+One immutable root tag, `vX.Y.Z`, releases all five public workspaces from the
 same `main` commit:
 
 | Publish order | Package | Workspace | Artifact |
@@ -16,19 +17,23 @@ same `main` commit:
 | 2 | `@nones/journal` | `adapters/journal` | `nones-journal-X.Y.Z.tgz` |
 | 3 | `@nones/kaiten-mcp` | `apps/kaiten` | `nones-kaiten-mcp-X.Y.Z.tgz` |
 | 4 | `@nones/opencode-mcp` | `apps/opencode` | `nones-opencode-mcp-X.Y.Z.tgz` |
+| 5 | `@nones/dsh-session-mcp` | `apps/dsh` | `nones-dsh-session-mcp-X.Y.Z.tgz` |
+
+`@nones/dsh-session-mcp` is a DeepSeek Harness Cordis bundle published from
+`apps/dsh`. Install it into a profile with
+`dsh plugin --profile <name> add @nones/dsh-session-mcp`; it is not an aggregate
+module, so the root `nones-mcp` gateway does not host it. Its tarball keeps the
+compiled Host/Client entries, `cordis.patch.yml`, `icon.svg` and the real
+`locale/*.json` files; `src/` and legacy `dist/` are never published.
 
 The journal collection is public as `@nones/journal`, with SQLite usage through
 the typed subpath `@nones/journal/sqlite`. `@nones/mcp-journal-sqlite` is retired
-and must not be published. Runtime/app manifest migration is owned by the
-session that moves the workspace and updates root/app manifests and `bun.lock`;
-until that join, root README/ARCHITECTURE, `scripts/pack-check.ts`,
-`scripts/test.ts` and app manifests may still describe the retired adapter.
-Release scripts and tests here use the synthetic new shape and must not be run
-against the old roster.
+and must not be published. All five manifests, the root manifest and
+`bun.lock` are synchronized to the coordinated version.
 
 ## Version synchronization
 
-The version command validates strict SemVer, synchronizes root plus all four
+The version command validates strict SemVer, synchronizes root plus all five
 workspace versions, pins every internal `@nones/*` dependency to the exact
 release version, and updates the root `bun.lock` workspace metadata without
 changing external lock entries. It preserves package names, registry scope and
@@ -36,12 +41,12 @@ executable `bin` maps.
 
 ```sh
 # Preview only; this is the default.
-node scripts/release.mjs version 5.0.0
-bun scripts/release.mjs version 5.0.0
+node scripts/release.mjs version 5.1.0
+bun scripts/release.mjs version 5.1.0
 
 # Apply.
-node scripts/release.mjs version 5.0.0 --write
-bun scripts/release.mjs version 5.0.0 --write
+node scripts/release.mjs version 5.1.0 --write
+bun scripts/release.mjs version 5.1.0 --write
 ```
 
 `version` accepts future versions, prereleases and an optional leading `v`.
@@ -63,16 +68,16 @@ elsewhere, so add these only when its owner is ready:
 }
 ```
 
-Then call, for example, `bun run release:version -- 5.0.0 --write` and
-`bun run release:plan -- --tag v5.0.0`.
+Then call, for example, `bun run release:version -- 5.1.0 --write` and
+`bun run release:plan -- --tag v5.1.0`.
 
 ## Planning, packing and verification
 
 ```sh
-node scripts/release.mjs plan --tag v5.0.0
-node scripts/release.mjs verify-tag --tag v5.0.0 --main-ref origin/main
-node scripts/release.mjs pack --tag v5.0.0 --out .tmp/release/v5.0.0
-node scripts/release.mjs verify-install --out .tmp/release/v5.0.0
+node scripts/release.mjs plan --tag v5.1.0
+node scripts/release.mjs verify-tag --tag v5.1.0 --main-ref origin/main
+node scripts/release.mjs pack --tag v5.1.0 --out .tmp/release/v5.1.0
+node scripts/release.mjs verify-install --out .tmp/release/v5.1.0
 ```
 
 `verify-tag` requires the checked-out commit to be the tag commit and an
@@ -80,20 +85,27 @@ ancestor of `origin/main`, then validates tag/manifest alignment, exact internal
 dependency versions, unique names, the journal `./sqlite` export and bins.
 
 `pack` runs `npm pack --ignore-scripts` for each workspace, rejects source files
-or missing `dist`/bin entries, writes `release-manifest.json`, `SHA256SUMS` and
-`release-commit.txt`, then installs exactly those tarballs in a temporary
-project and imports every package. Publication uses the same hashes and commit.
+or missing `dist`/bin entries, resolves wildcard export targets such as DSH's
+`./locale/*.json` against real packed files, writes `release-manifest.json`,
+`SHA256SUMS` and `release-commit.txt`, then installs exactly those tarballs in a
+temporary project and imports every package. Publication uses the same hashes
+and commit.
+
+After npm accepts a publish with HTTP 202, the version and its `dist.integrity`
+can stay invisible for several minutes. Publication polls the registry for up
+to roughly ten minutes before failing; a visible but different SRI still fails
+closed immediately.
 
 ## GitHub tag workflow
 
-A push of `vX.Y.Z` runs one workflow for all four packages. It performs:
+A push of `vX.Y.Z` runs one workflow for all five packages. It performs:
 
 1. strict tag, manifest and main-ancestry validation;
 2. release-tool tests and canonical `bun run verify`;
 3. packing without lifecycle scripts, install smoke, checksums and build attestation;
 4. upload of the named Actions artifact `release-vX.Y.Z`;
 5. optional npm publication;
-6. a GitHub release for the monorepo tag with all four archives, `SHA256SUMS`,
+6. a GitHub release for the monorepo tag with all five archives, `SHA256SUMS`,
    `release-manifest.json` and `release-commit.txt`.
 
 `workflow_dispatch` accepts the same tag or `refs/tags/vX.Y.Z` and repeats the
@@ -152,7 +164,7 @@ follows:
 4. Set `NPM_TRUSTED_PUBLISHER_ENABLED=1`, then run the workflow again on the same
    immutable tag (`workflow_dispatch`, optionally with the first run's
    `artifact_run_id`). Existing exact versions are skipped; staging tags are
-   reconciled and `latest` is promoted only after all four exact versions are
+   reconciled and `latest` is promoted only after all five exact versions are
    present in the registry.
 
 Direct token publishes and dist-tag updates remain supported by the same script

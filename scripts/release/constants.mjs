@@ -13,6 +13,7 @@ export const PACKAGES = Object.freeze([
   { dir: "adapters/journal", name: "@nones/journal" },
   { dir: "apps/kaiten", name: "@nones/kaiten-mcp" },
   { dir: "apps/opencode", name: "@nones/opencode-mcp" },
+  { dir: "apps/dsh", name: "@nones/dsh-session-mcp" },
 ]);
 
 export const PACKAGE_NAMES = Object.freeze(PACKAGES.map((entry) => entry.name));
@@ -30,6 +31,7 @@ export const REQUIRED_BINS = Object.freeze({
   "@nones/journal": [],
   "@nones/kaiten-mcp": ["kaiten"],
   "@nones/opencode-mcp": ["opencode-mcp", "oc2-mcp"],
+  "@nones/dsh-session-mcp": [],
 });
 
 /**

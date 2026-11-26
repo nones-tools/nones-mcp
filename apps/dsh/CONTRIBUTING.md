@@ -18,35 +18,39 @@ Client half owns the Settings page. They talk over the authenticated `/api` chan
 
 ## Requirements
 
-- Node ≥ 20
+- Node ≥ 22.14
 - [bun](https://bun.sh) (dependency install, scripts)
 - A DeepSeek Harness installation to try the plugin in (optional for the smoke test)
 
 ## Quick start
 
+This app lives in the `nones-mcp` monorepo; build and test it from the workspace
+root so the shared `@nones/mcp-core` and `@nones/journal` sources are current.
+
 ```bash
-git clone https://github.com/ZeiZel/dsh-session-mcp.git
-cd dsh-session-mcp
-bun install
-bun run typecheck   # tsc --noEmit for both targets
-bun run test        # smoke test, no harness needed
-bun run build       # emits dist/
+git clone https://github.com/nones-tools/nones-mcp.git
+cd nones-mcp
+bun install --frozen-lockfile
+bun run build                 # core, journal, both apps and this bundle
+bun run --cwd apps/dsh typecheck
+bun run --cwd apps/dsh test   # smoke test, no harness needed
 ```
 
-`dist/` is committed. Rebuild and commit it whenever you change anything under `src/` —
-installs from git or from a directory must not need a build step.
+`dist/` is generated and ignored. The packed tarball contains only compiled
+entry points, the Cordis patch, locale files and the icon; it never contains
+`src/`.
 
 ## Layout
 
 ```
 src/index.ts     Cordis plugin: bearer, listener, state file, config route
-src/server.ts    node:http listener + bearer gate + official MCP handler
-src/tools.ts     the tool surface, backed by ctx.sessionController
-src/log.ts       bounded journal (last five calls)
+src/server.ts    node:http listener + bearer gate + core createToolServer
+src/tools.ts     the tool surface in a core registry, backed by ctx.sessionController
+src/log.ts       bounded last-five observer for the Settings page
 src/config.ts    token persistence, snippets, payload types
 src/client.ts    the Settings page (classic script)
 src/types.ts     the structural slice of Harness types we depend on
-test/smoke.mjs   endpoint + every tool + journal, against a stub controller
+test/smoke.mjs   endpoint + every tool + core journal, against a stub controller
 ```
 
 ### Why two tsconfigs
@@ -60,7 +64,7 @@ second config's `include` and to `package.json` `exports`.
 ## Trying it in a harness
 
 ```bash
-dsh plugin --profile desktop add /absolute/path/to/dsh-session-mcp
+dsh plugin --profile desktop add /absolute/path/to/nones-mcp/apps/dsh
 ```
 
 Then:
@@ -124,23 +128,24 @@ and renders inside the settings content column. Conventions:
 
 - Conventional commits: `feat:`, `fix:`, `docs:`, `chore:`, `ci:`.
 - One logical change per commit; `chore(release): x.y.z` for the version bump.
-- A pull request should say what changed, why, and what you verified. `bun run test` must
-  pass and `dist/` must be current.
+- A pull request should say what changed, why, and what you verified. `bun run verify`
+  must pass and `dist/` must not be committed.
 - The smoke test is the contract. If you change a tool's behaviour, change its assertion.
 
 ## Releasing
 
-Publishing is automated. Never run `npm publish` by hand.
+Publishing is automated by the root monorepo workflow. Never run `npm publish` by
+hand and never add a package-local release workflow.
 
 ```bash
-npm version patch --no-git-tag-version   # or minor / major
-git commit -am "chore(release): 1.3.1"
-git tag v1.3.1
-git push origin master --tags
+node scripts/release.mjs version 5.1.0 --write
+bun run verify
+node --test scripts/release.test.mjs
 ```
 
-The `release` workflow then builds, publishes to npm with a signed provenance statement, and
-cuts the GitHub release. It needs the `NPM_TOKEN` repository secret.
+The universal `v5.1.0` tag builds, attests, publishes and releases all five public
+packages from one commit. It needs the repository variable
+`NPM_TRUSTED_PUBLISHER_ENABLED=1` before npm publication is enabled.
 
 ## Gotchas
 

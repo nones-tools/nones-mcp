@@ -12,6 +12,11 @@
  * @module dsh-session-mcp/test
  */
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
+import { journalSinkFor } from '@nones/mcp-core'
+import { openSqliteJournal } from '@nones/journal/sqlite'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { createToken } from '../dist/config.js'
 import { RequestJournal } from '../dist/log.js'
 import { startEndpoint } from '../dist/server.js'
@@ -30,6 +35,22 @@ const EXPECTED_TOOLS = [
   'session_send',
   'sessions_list',
 ]
+
+/** The frozen 1.4.0 wire surface copied from the public release. */
+const BASELINE_TOOLS = JSON.parse(
+  readFileSync(new URL('./fixtures/tools.baseline.json', import.meta.url), 'utf8'),
+)
+
+/** Compare JSON values without depending on object key order. */
+function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical)
+  if (value === null || typeof value !== 'object') return value
+  return Object.fromEntries(
+    Object.keys(value)
+      .sort()
+      .map((key) => [key, canonical(value[key])]),
+  )
+}
 
 const NOW = Date.now()
 
@@ -116,6 +137,9 @@ function check(label, condition, detail = '') {
 // The listener reads the token per request, so rotation takes effect live.
 let token = createToken()
 const journal = new RequestJournal()
+const journalDir = mkdtempSync(join(tmpdir(), 'dsh-session-mcp-journal-'))
+const adapter = await openSqliteJournal(join(journalDir, 'journal.sqlite'))
+const sink = journalSinkFor({ adapter })
 const endpoint = await startEndpoint({
   controller,
   token: () => token,
@@ -123,6 +147,7 @@ const endpoint = await startEndpoint({
   port: 0,
   version: 'test',
   journal,
+  sink,
 })
 
 try {
@@ -156,6 +181,10 @@ try {
   const listed = await client.listTools()
   const names = listed.tools.map((tool) => tool.name).sort()
   check('every expected tool is exposed', JSON.stringify(names) === JSON.stringify(EXPECTED_TOOLS), names.join(', '))
+  check(
+    'the 1.4.0 names, schemas, titles and descriptions are unchanged',
+    JSON.stringify(canonical(listed.tools)) === JSON.stringify(canonical(BASELINE_TOOLS)),
+  )
 
   console.log('tools')
   const calls = [
@@ -186,6 +215,21 @@ try {
   check('the addressed conversation is recorded', journal.snapshot()[0]?.sessionId === 'session-demo')
   check('the failure is remembered', journal.lastFailure?.tool === 'session_send')
 
+  console.log('core journal')
+  const page = await adapter.query({ limit: 50 })
+  const operations = page.records.map((entry) => entry.operation)
+  check('core journal persists every handled call', page.records.length === calls.length + 1, `got ${String(page.records.length)}`)
+  check(
+    'core journal uses the shared dsh operation ids',
+    operations.includes('dsh-session-mcp.mcp.sessions_list') &&
+      operations.includes('dsh-session-mcp.mcp.session_send'),
+    operations.slice(0, 4).join(', '),
+  )
+  check(
+    'core journal stores no prompt text',
+    page.records.every((entry) => entry.prompt === undefined),
+  )
+
   await client.close()
 
   console.log('rotation')
@@ -213,6 +257,8 @@ try {
   await rotated.close()
 } finally {
   await endpoint.close()
+  await adapter.close()
+  rmSync(journalDir, { recursive: true, force: true })
 }
 
 if (failures.length > 0) {

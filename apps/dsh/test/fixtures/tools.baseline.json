@@ -1,0 +1,258 @@
+[
+  {
+    "name": "sessions_list",
+    "title": "List conversations",
+    "description": "List DeepSeek Harness conversations with id, title, working directory, running state and token usage. Call this first to discover the sessionId to read or prompt.",
+    "inputSchema": {
+      "type": "object",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "limit": {
+          "description": "Maximum rows, newest first. Default 50.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        }
+      }
+    }
+  },
+  {
+    "name": "session_read",
+    "title": "Read conversation history",
+    "description": "Read durable history of one conversation (user, assistant and tool messages). Use beforeSeq to page further back.",
+    "inputSchema": {
+      "type": "object",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Conversation id from sessions_list."
+        },
+        "maxMessages": {
+          "description": "Roughly how many messages. Default 20.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200
+        },
+        "beforeSeq": {
+          "description": "Only return events before this sequence number.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "sessionId"
+      ]
+    }
+  },
+  {
+    "name": "session_send",
+    "title": "Send a message into a conversation",
+    "description": "Send a user message into an existing conversation. The message joins the live chat a human sees and starts a model turn. mode=queue waits for the current turn, mode=steer interrupts into it.",
+    "inputSchema": {
+      "type": "object",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Conversation id from sessions_list."
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Message text to deliver."
+        },
+        "mode": {
+          "description": "Delivery mode. Default queue.",
+          "type": "string",
+          "enum": [
+            "queue",
+            "steer"
+          ]
+        }
+      },
+      "required": [
+        "sessionId",
+        "text"
+      ]
+    }
+  },
+  {
+    "name": "session_create",
+    "title": "Open a new conversation",
+    "description": "Open a new blank conversation in the Harness and return its id. Combine with session_send to start work in a fresh chat.",
+    "inputSchema": {
+      "type": "object",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "cwd": {
+          "description": "Absolute directory the conversation works in.",
+          "type": "string",
+          "minLength": 1
+        },
+        "agentPreset": {
+          "description": "Agent preset name. Omit for the configured default.",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "session_search",
+    "title": "Search conversations",
+    "description": "Full-text search across conversations. Works only when the Harness has the session-query index enabled; otherwise the Host reports that search is disabled.",
+    "inputSchema": {
+      "type": "object",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "query": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Search text."
+        }
+      },
+      "required": [
+        "query"
+      ]
+    }
+  },
+  {
+    "name": "session_inspect",
+    "title": "Inspect one conversation",
+    "description": "Vitals of one conversation: title, run state, token usage, context pressure, pending queue, selected model and goal. Cheaper than reading history when you only need its state.",
+    "inputSchema": {
+      "type": "object",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Conversation id from sessions_list."
+        }
+      },
+      "required": [
+        "sessionId"
+      ]
+    }
+  },
+  {
+    "name": "session_rename",
+    "title": "Rename a conversation",
+    "description": "Set the title of one conversation. Returns the normalized title and the event position that committed it.",
+    "inputSchema": {
+      "type": "object",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Conversation id from sessions_list."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "New title."
+        }
+      },
+      "required": [
+        "sessionId",
+        "title"
+      ]
+    }
+  },
+  {
+    "name": "session_fork",
+    "title": "Fork a conversation",
+    "description": "Copy a conversation prefix into a new conversation and return its id. Omit atSeq to fork at the latest completed turn — useful to branch off an alternative approach without disturbing the original.",
+    "inputSchema": {
+      "type": "object",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Conversation id from sessions_list."
+        },
+        "atSeq": {
+          "description": "Exact inclusive source event seq to cut at.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "sessionId"
+      ]
+    }
+  },
+  {
+    "name": "session_cancel",
+    "title": "Stop a running turn",
+    "description": "Ask the Host to cancel the turn a conversation is currently running. Pending inbox work is retained, so a queued message is not lost.",
+    "inputSchema": {
+      "type": "object",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Conversation id from sessions_list."
+        }
+      },
+      "required": [
+        "sessionId"
+      ]
+    }
+  },
+  {
+    "name": "models_list",
+    "title": "List available models",
+    "description": "Every model route this harness can currently reach, grouped by provider, with the reasoning efforts each accepts and the deployment default. Call before session_select_model.",
+    "inputSchema": {
+      "type": "object",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {}
+    }
+  },
+  {
+    "name": "session_select_model",
+    "title": "Choose the model for a conversation",
+    "description": "Pin one provider/model route (and optional reasoning effort) to a conversation. Use models_list first: an unavailable pair is rejected with session/model-unavailable.",
+    "inputSchema": {
+      "type": "object",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Conversation id from sessions_list."
+        },
+        "provider": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Provider id from models_list."
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Model id from models_list."
+        },
+        "reasoningEffort": {
+          "description": "Reasoning effort id the route accepts.",
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "sessionId",
+        "provider",
+        "model"
+      ]
+    }
+  }
+]

@@ -2,3 +2,5 @@
 node_modules/
 dist/
 *.tgz
+apps/dsh/bun.lock
+apps/dsh/.github/

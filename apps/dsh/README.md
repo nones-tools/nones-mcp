@@ -40,12 +40,17 @@ copy of it.
 dsh plugin --profile desktop add @nones/dsh-session-mcp
 ```
 
-From a checkout or straight from git:
+From a checkout of this monorepo or straight from GitHub:
 
 ```bash
-dsh plugin --profile desktop add /absolute/path/to/dsh-session-mcp
-bun add github:ZeiZel/dsh-session-mcp
+dsh plugin --profile desktop add /absolute/path/to/nones-mcp/apps/dsh
+bun add github:nones-tools/nones-mcp#workspace=@nones/dsh-session-mcp
 ```
+
+The published package is built from source in
+[`nones-tools/nones-mcp/apps/dsh`](https://github.com/nones-tools/nones-mcp/tree/main/apps/dsh);
+`bun run build` in that directory compiles `dist/` locally. `dist/` is not
+tracked.
 
 Restart the harness (or reload the profile) and the endpoint starts with it.
 
@@ -218,31 +223,49 @@ The plugin row accepts two options (`cordis.patch.yml`):
 
 ## How it works
 
-Written in TypeScript, compiled to `dist/` (committed, so installs need no build step).
+Written in TypeScript and compiled to `dist/` by the monorepo build; tarballs
+ship only generated output, never `src/`.
 
 | Source | Role |
 |---|---|
 | `src/index.ts` | Cordis plugin: reads/creates the bearer, starts the listener, publishes the state file, serves the Settings routes (read config, move port, rotate token), closes the listener on unload |
-| `src/server.ts` | `node:http` listener with the bearer gate in front of the official SDK's `createMcpHandler` + `toNodeHandler` |
-| `src/tools.ts` | The eleven tools, backed directly by `ctx.sessionController` |
-| `src/log.ts` | Bounded journal of the last five calls |
+| `src/server.ts` | `node:http` listener with the bearer gate in front of the official SDK's `createMcpHandler` + `toNodeHandler`, using `@nones/mcp-core` `createToolServer` |
+| `src/tools.ts` | The eleven tools in a frozen core action registry, backed directly by `ctx.sessionController` |
+| `src/log.ts` | Bounded last-five observer for the Settings page; durable journaling is core |
 | `src/config.ts` | Token persistence, constant-time bearer comparison, client snippets |
 | `src/client.ts` | The **Settings → MCP** page (classic script for `window.__ModuleLoader__`) |
 | `src/types.ts` | The narrow structural slice of Harness types this package needs |
 
+Tool calls are journalled exactly once by `@nones/mcp-core` through the
+configured journal sink; the default is the SQLite adapter from
+`@nones/journal/sqlite`. Records contain the operation, outcome, duration and
+native session id only — never arguments, prompts, tool output or tokens.
+
+### Scope boundary
+
+The supported deployment is the in-Harness Cordis bundle: the endpoint starts
+inside the process that owns `sessionController`, so `session_send` reaches the
+live conversation. The root `nones-mcp` aggregate and remote gateway for other
+modules run in a separate worktree and do not host this bundle; aggregating DSH
+there would need a separate explicit upstream and is intentionally out of scope.
+No general relay is opened.
+
 ## Releases
 
-Publishing is automatic: pushing a `v*` tag makes GitHub Actions build the package, publish
-it to npm with a **signed provenance** statement, and cut a GitHub release.
+Releases are coordinated by the monorepo root tag, not by this directory. There
+is no package-local release workflow. Pushing the universal `vX.Y.Z` tag packs
+and verifies all five public packages from one commit:
 
 ```bash
-npm version patch --no-git-tag-version
-git commit -am "chore(release): 1.3.1"
-git tag v1.3.1
-git push origin master --tags
+node scripts/release.mjs version 5.1.0 --write
+node --test scripts/release.test.mjs
+bun run verify
+node scripts/release.mjs pack --tag v5.1.0 --out .tmp/release/v5.1.0
 ```
 
-The workflow requires one repository secret, `NPM_TOKEN` (npm automation token).
+The root release workflow owns tagging, npm publication, provenance and the
+GitHub release for all five packages. Do not run `npm publish` from
+`apps/dsh`, and do not add a package-local workflow.
 
 ## Contributing
 

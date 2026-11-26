@@ -1,21 +1,22 @@
 /**
  * Bearer-authenticated HTTP MCP endpoint.
  *
- * The MCP protocol work is the official SDK's: `createMcpHandler` serves the
- * modern revision from a per-request server factory and falls back to stateless
- * serving for 2025-era clients, so older MCP clients keep working. This module
- * owns only what the SDK deliberately leaves to the caller: the loopback
- * listener, the path, and the bearer check.
+ * Protocol construction lives in `@nones/mcp-core`: `createToolServer` builds
+ * the low-level MCP server from the frozen action registry and owns journaling.
+ * The MCP SDK's `createMcpHandler` supplies the HTTP revision ladder. This
+ * module owns only what both leave to the Host: the loopback listener, the
+ * path, and the bearer check.
  *
  * @module dsh-session-mcp/server
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { toNodeHandler } from '@modelcontextprotocol/node'
-import { createMcpHandler, McpServer } from '@modelcontextprotocol/server'
+import { createMcpHandler } from '@modelcontextprotocol/server'
+import { createToolServer, type JournalSink } from '@nones/mcp-core'
 import { bearerMatches, SERVER_NAME } from './config.js'
 import type { RequestJournal } from './log.js'
-import { registerTools } from './tools.js'
+import { dshToolEntries } from './tools.js'
 import type { PluginLogger, SessionController } from './types.js'
 
 /** Path the MCP endpoint answers on. */
@@ -49,7 +50,10 @@ export interface StartEndpointOptions {
   readonly port: number
   readonly version: string
   readonly logger?: PluginLogger | undefined
+  /** Bounded Settings observer; not the durable journal. */
   readonly journal?: RequestJournal | undefined
+  /** Shared core journal sink. Omit for a non-journaling embedding. */
+  readonly sink?: JournalSink | null | undefined
   /**
    * Whether a busy port may fall back to an ephemeral one. Startup wants that;
    * an explicit port change from Settings does not, because the user asked for
@@ -62,14 +66,27 @@ export interface StartEndpointOptions {
  * Build the web-standard MCP handler for one session controller.
  * @param controller - Harness `sessionController` service.
  * @param version - advertised server version.
+ * @param journal - bounded Settings observer.
+ * @param sink - shared core journal sink.
  * @returns an object exposing `fetch(Request)`.
  */
-export function buildMcpHandler(controller: SessionController, version: string, journal?: RequestJournal) {
-  return createMcpHandler(() => {
-    const server = new McpServer({ name: SERVER_NAME, version }, { instructions: SERVER_INSTRUCTIONS })
-    registerTools(server, controller, journal)
-    return server
-  })
+export function buildMcpHandler(
+  controller: SessionController,
+  version: string,
+  journal?: RequestJournal,
+  sink?: JournalSink | null,
+) {
+  const tools = dshToolEntries(controller, journal)
+  return createMcpHandler(() =>
+    createToolServer({
+      name: SERVER_NAME,
+      version,
+      capabilities: { tools: { listChanged: true } },
+      instructions: SERVER_INSTRUCTIONS,
+      tools,
+      journal: sink ?? null,
+    }),
+  )
 }
 
 /**
@@ -146,13 +163,13 @@ async function bind(
 
 /**
  * Start the bearer-authenticated MCP endpoint.
- * @param options - controller, token, host, port, version, logger.
+ * @param options - controller, token, host, port, version, logger, observer, sink.
  * @returns the resolved endpoint plus a disposer.
  */
 export async function startEndpoint(options: StartEndpointOptions): Promise<RunningEndpoint> {
-  const { controller, token, host, port, version, logger, journal, allowFallback = true } = options
+  const { controller, token, host, port, version, logger, journal, sink, allowFallback = true } = options
   const readToken = typeof token === 'function' ? token : (): string => token
-  const handler = buildMcpHandler(controller, version, journal)
+  const handler = buildMcpHandler(controller, version, journal, sink)
   const nodeHandler = toNodeHandler(handler)
 
   const server = createServer((req, res) => {

@@ -16,11 +16,11 @@ End-to-end tests cover both standalone providers and the aggregate entry. Fixtur
 
 ## Versions and deployment
 
-The root and four workspace manifests advance together. The public package names are `@nones/mcp-core`, `@nones/kaiten-mcp`, `@nones/opencode-mcp`, and `@nones/journal`. The coordinated release starts at 5.0.0.
+The root and five workspace manifests advance together. The public package names are `@nones/mcp-core`, `@nones/kaiten-mcp`, `@nones/opencode-mcp`, `@nones/dsh-session-mcp`, and `@nones/journal`. The coordinated 5.1.0 release advances them together.
 
-A root version command synchronizes the manifests and lockfile. A single `vX.Y.Z` tag validates the exact commit and tag alignment, builds and verifies the workspaces, and packs a four-package release. A fresh install from the verified artifacts checks the public entry points. Publication stages all four versions in dependency order. Promotion of `latest` follows registry confirmation of the complete set. A rerun verifies digests and resumes partial publication while preserving newer releases.
+A root version command synchronizes the manifests and lockfile. A single `vX.Y.Z` tag validates the exact commit and tag alignment, builds and verifies the workspaces, and packs a five-package release. A fresh install from the verified artifacts checks the public entry points. Publication stages all five versions in dependency order. Promotion of `latest` follows registry confirmation of the complete set. A rerun verifies digests and resumes partial publication while preserving newer releases.
 
-GitHub Actions publishes from the monorepo through npm Trusted Publishing. Initial registry bootstrap can use the identical verified archives and an authorized npm session. The same workflow archives all four tarballs and their checksums in GitHub Releases.
+GitHub Actions publishes from the monorepo through npm Trusted Publishing. Initial registry bootstrap can use the identical verified archives and an authorized npm session. The same workflow archives all five tarballs and their checksums in GitHub Releases. `@nones/dsh-session-mcp` is published from `apps/dsh` and installed into a DeepSeek Harness profile with `dsh plugin --profile <name> add`; it has no separate release workflow.
 
 ## GitHub and project identity
 

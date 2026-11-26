@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 
 const run = promisify(execFile);
 const root = path.resolve(import.meta.dir, "..");
-const PACKAGES = ["apps/core", "adapters/journal", "apps/kaiten", "apps/opencode"];
+const PACKAGES = ["apps/core", "adapters/journal", "apps/kaiten", "apps/opencode", "apps/dsh"];
 const failures: string[] = [];
 
 function check(condition: boolean, message: string): void {
@@ -45,7 +45,8 @@ for (const relative of PACKAGES) {
     version: string;
     files?: string[];
     engines?: { node?: string };
-    exports?: Record<string, { types?: string; import?: string }>;
+    exports?: Record<string, { types?: string; import?: string; default?: string }>;
+    dependencies?: Record<string, string>;
   };
   const label = pkg.name;
   check(pkg.version !== "0.0.0", `${label} must have its own version`);
@@ -63,7 +64,10 @@ for (const relative of PACKAGES) {
   } else {
     const entry = exportMap["."];
     check(entry?.types === "./dist/index.d.ts", `${label} needs a packed types entry`);
-    check(entry?.import === "./dist/index.js", `${label} needs a packed import entry`);
+    check(
+      entry?.import === "./dist/index.js" || entry?.default === "./dist/index.js",
+      `${label} needs a packed import/default entry`,
+    );
   }
   if (label === "@nones/mcp-core") {
     check(exportMap["./journal"]?.types === "./dist/journal/index.d.ts", "core needs a ./journal types entry");
@@ -75,9 +79,29 @@ for (const relative of PACKAGES) {
     check(moduleExport?.types?.endsWith(".d.ts") === true, `${label} needs a ./module types entry`);
     check(moduleExport?.import?.endsWith(".js") === true, `${label} needs a ./module import entry`);
   }
+  if (label === "@nones/dsh-session-mcp") {
+    for (const subpath of ["./server", "./config", "./client"] as const) {
+      check(exportMap[subpath]?.types?.endsWith(".d.ts") === true, `${label} needs a ${subpath} types entry`);
+      check(exportMap[subpath]?.default?.endsWith(".js") === true, `${label} needs a ${subpath} default entry`);
+    }
+    check(exportMap["./icon"] === "./icon.svg", `${label} must publish its icon`);
+    check(pkg.dependencies?.["@nones/mcp-core"] === pkg.version, `${label} must depend on the same core version`);
+    check(pkg.dependencies?.["@nones/journal"] === pkg.version, `${label} must depend on the same journal version`);
+  }
   const entryFiles = label === "@nones/journal"
     ? ["dist/sqlite/index.js", "dist/sqlite/index.d.ts"]
-    : ["dist/index.js", "dist/index.d.ts"];
+    : label === "@nones/dsh-session-mcp"
+      ? [
+          "dist/index.js",
+          "dist/index.d.ts",
+          "dist/server.js",
+          "dist/server.d.ts",
+          "dist/config.js",
+          "dist/config.d.ts",
+          "dist/client.js",
+          "dist/client.d.ts",
+        ]
+      : ["dist/index.js", "dist/index.d.ts"];
   for (const file of entryFiles) {
     await stat(path.join(directory, file)).catch(() =>
       failures.push(`${label} is missing ${file}; run bun run build`),
@@ -118,6 +142,15 @@ for (const relative of PACKAGES) {
   const paths = report[0]?.files.map((file) => file.path) ?? [];
   for (const file of entryFiles) {
     check(paths.includes(file), `${label}: packed tarball lacks ${file}`);
+  }
+  if (label === "@nones/dsh-session-mcp") {
+    for (const file of ["cordis.patch.yml", "locale/en.json", "locale/ru.json", "icon.svg"]) {
+      check(paths.includes(file), `${label}: packed tarball lacks ${file}`);
+    }
+    check(
+      paths.some((file) => /^locale\/[^/]+\.json$/.test(file)),
+      `${label}: packed tarball lacks a real locale/*.json target`,
+    );
   }
   check(!paths.some((file) => file.startsWith("src/")), `${label}: packed tarball leaks src/`);
   console.log(`${label}@${pkg.version}: ${paths.length} packed files, declarations ok`);
