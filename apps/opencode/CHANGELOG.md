@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.0
+
+Operation journal release; MCP transport, help/version, native Commander commands, service startup, and session admission behavior are preserved.
+
+- Added a local CLI operation journal for `opencode.session.start`, `send`, `run`, `monitor`, `status`, `messages`, `sessions`, and `opencode.service.start`. Records include UTC time, duration, outcome, and native session ID, title, and message ID when known. Authorized prompt text is captured only for `start`, `send`, and `run`.
+- Added `journal list` and `journal stats` with bounded filters, opaque cursors, and prompt redaction by default. `--include-prompts` is required to print captured prompts. No delete command was added.
+- Added the built-in SQLite adapter using lazy `node:sqlite`, with versioned migrations, WAL, `busy_timeout`, parameterized SQL, idempotent IDs, private `0700`/`0600` creation, stable UTC ordering, and deterministic stats.
+- Added user config at `OPENCODE_MCP_CONFIG` or `$XDG_CONFIG_HOME/nones/config.json` (fallback `~/.config/nones/config.json`) and default state at `$XDG_STATE_HOME/nones/journal.sqlite` (fallback `~/.local/state/nones/journal.sqlite`). Journaling and prompt capture can be disabled; shared top-level config keys are permitted.
+- Added the versioned custom adapter contract (`JOURNAL_API_VERSION = 1`) and package export `@nones/opencode-mcp/journal`. Custom adapters are trusted local code loaded only from explicit config, resolve relative to the config file, and never trigger a SQLite fallback when invalid.
+- Kept journaling non-fatal for native CLI results: open, record, load, and custom/remote failures are bounded and swallowed for normal actions. `send` performs its title lookup only after admission, skips it when journaling is disabled, and never retries or delays the steer submission.
+- Documented that Node 22 can emit its built-in SQLite experimental warning on stderr, that warnings are not suppressed, and that stdout is unchanged. Journal command errors report a generic safe summary rather than custom-adapter or remote-driver exception data.
+- Added focused tests for persistence, pagination, filters, stats, idempotent IDs, permissions, incompatible database preservation, config and adapter validation, CLI logging for start/send/monitor, non-fatal adapter load failure, bounded send title lookup, and installed-package journal reads under Node and Bun.
+
 ## 0.4.0
 
 Managed service startup release; existing `mcp`, `doctor`, session, and SDK behavior is preserved.

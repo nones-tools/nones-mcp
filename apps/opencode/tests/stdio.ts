@@ -1,6 +1,17 @@
 import { spawn } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 const timeoutMs = 5000;
+
+/** Keep existing CLI tests away from the real user journal and XDG state. */
+const journalRoot = mkdtempSync(
+  path.join(tmpdir(), "opencode-mcp-test-journal-"),
+);
+const journalConfig = path.join(journalRoot, "config.json");
+writeFileSync(journalConfig, JSON.stringify({ journal: { enabled: false } }));
+process.on("exit", () => rmSync(journalRoot, { recursive: true, force: true }));
 
 export interface CliLaunchOptions {
   executable?: string;
@@ -19,7 +30,11 @@ export function startCli(
     options.executable ?? "node",
     [...(options.prefix ?? []), cli, ...extra],
     {
-      env: { ...process.env, ...env },
+      env: {
+        ...process.env,
+        OPENCODE_MCP_CONFIG: journalConfig,
+        ...env,
+      },
       stdio: ["pipe", "pipe", "pipe"],
     },
   );

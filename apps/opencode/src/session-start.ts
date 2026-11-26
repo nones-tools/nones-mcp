@@ -12,6 +12,12 @@ import {
 } from "./native-session";
 import { readPrompt } from "./prompt";
 import { resolveModel, type ModelRef } from "./session-model";
+import { recordJournaledOperation } from "./journal/cli-action";
+import {
+  bestEffortSessionTitle,
+  errorSessionID,
+  journalingEnabled,
+} from "./journal-cli";
 
 export interface StartOptions {
   directory: string;
@@ -33,6 +39,8 @@ export interface StartedSession {
   modelSource: string;
   info: SessionInfo;
   receipt: SessionReceipt;
+  /** Authorized prompt text, kept for CLI-only journaling. */
+  prompt: string;
 }
 
 /** Resolve and verify the working directory before any native mutation. */
@@ -57,8 +65,9 @@ export async function resolveDirectory(input: string): Promise<string> {
 export async function startSessionPrompt(
   options: StartOptions,
   env: { [name: string]: string | undefined } = process.env,
+  promptText?: string,
 ): Promise<StartedSession> {
-  const prompt = await readPrompt(options.file);
+  const prompt = promptText ?? (await readPrompt(options.file));
   const directory = await resolveDirectory(options.directory);
   const client = await OpenCodeClient.connect(env);
   const resolved = await resolveModel(client, directory, env, options.model);
@@ -81,6 +90,7 @@ export async function startSessionPrompt(
     modelSource: resolved.source,
     info,
     receipt,
+    prompt,
   };
 }
 
@@ -89,7 +99,24 @@ export async function runStart(
   options: StartOptions,
   env: { [name: string]: string | undefined } = process.env,
 ): Promise<void> {
-  const started = await startSessionPrompt(options, env);
+  const prompt = await readPrompt(options.file);
+  const startedAt = Date.now();
+  let started: StartedSession;
+  try {
+    started = await startSessionPrompt(options, env, prompt);
+  } catch (error) {
+    await recordJournaledOperation({
+      operation: "opencode.session.start",
+      prompt,
+      sessionId: errorSessionID(error),
+      outcome: "failure",
+      startedAt,
+      endedAt: Date.now(),
+      env,
+    });
+    throw error;
+  }
+  const endedAt = Date.now();
   console.log(
     formatJson({
       sessionID: started.info.id,
@@ -100,6 +127,17 @@ export async function runStart(
       receipt: started.receipt,
     }),
   );
+  await recordJournaledOperation({
+    operation: "opencode.session.start",
+    prompt: started.prompt,
+    sessionId: started.info.id,
+    sessionTitle: started.info.title ?? options.title,
+    messageId: started.receipt.id,
+    outcome: "success",
+    startedAt,
+    endedAt,
+    env,
+  });
 }
 
 /**
@@ -113,16 +151,27 @@ export async function runSend(
   const delivery: Delivery = parseDelivery(options.delivery ?? "steer");
   const prompt = await readPrompt(options.file);
   const client = await OpenCodeClient.connect(env);
-  let receipt;
+  const startedAt = Date.now();
+  let receipt: SessionReceipt;
   try {
     receipt = await submitPrompt(client, options.sessionID, prompt, delivery);
   } catch (error) {
+    await recordJournaledOperation({
+      operation: "opencode.session.send",
+      prompt,
+      sessionId: options.sessionID,
+      outcome: "failure",
+      startedAt,
+      endedAt: Date.now(),
+      env,
+    });
     throw new Error(
       `Prompt submission failed for session ${options.sessionID}: ${
         error instanceof Error ? error.message : "unknown error"
       }`,
     );
   }
+  const endedAt = Date.now();
   console.log(
     formatJson({
       sessionID: options.sessionID,
@@ -130,4 +179,18 @@ export async function runSend(
       receipt,
     }),
   );
+  const title = (await journalingEnabled(env))
+    ? await bestEffortSessionTitle(client, options.sessionID)
+    : undefined;
+  await recordJournaledOperation({
+    operation: "opencode.session.send",
+    prompt,
+    sessionId: options.sessionID,
+    sessionTitle: title,
+    messageId: receipt.id,
+    outcome: "success",
+    startedAt,
+    endedAt,
+    env,
+  });
 }

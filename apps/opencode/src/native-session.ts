@@ -93,9 +93,11 @@ export async function submitPrompt(
 
 /** Keep a created session ID visible when only the prompt handoff fails. */
 export function sessionFailure(sessionID: string, error: unknown): Error {
-  return new Error(
+  const failure = new Error(
     `Session ${sessionID} was created but prompt submission failed: ${errorText(error)}`,
-  );
+  ) as Error & { sessionID: string };
+  failure.sessionID = sessionID;
+  return failure;
 }
 
 /** Reject empty or unknown delivery values before mutating a session. */

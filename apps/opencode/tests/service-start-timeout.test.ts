@@ -21,11 +21,11 @@ describe("service start deadlines", () => {
       opencodeBin: process.execPath,
       timeoutSeconds: 3,
       clock: fakeClock(),
-      probe: async () => (++probes < 3 ? { ready: false } : ready("0.4.0")),
+      probe: async () => (++probes < 3 ? { ready: false } : ready("0.5.0")),
       launcher,
     });
     expect(result.nativeStartRequested).toBe(true);
-    expect(result.mcpVersion).toBe("0.4.0");
+    expect(result.mcpVersion).toBe("0.5.0");
     expect(calls).toHaveLength(1);
   });
 

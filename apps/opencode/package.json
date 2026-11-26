@@ -1,6 +1,6 @@
 {
   "name": "@nones/opencode-mcp",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "type": "module",
   "description": "MCP server, session CLI, and SDK for an existing OpenCode service",
   "license": "MIT",
@@ -19,6 +19,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./journal": {
+      "types": "./dist/journal/public.d.ts",
+      "import": "./dist/journal/public.js"
     }
   },
   "files": [
@@ -30,7 +34,7 @@
     "docs/assets/banner.svg"
   ],
   "scripts": {
-    "build": "bun build src/cli.ts src/index.ts --outdir dist --target node --format esm --packages external && tsc -p tsconfig.build.json && node scripts/fix-declaration-imports.mjs",
+    "build": "bun build src/cli.ts src/index.ts src/journal/public.ts --outdir dist --target node --format esm --packages external && tsc -p tsconfig.build.json && node scripts/fix-declaration-imports.mjs",
     "test": "bun test",
     "test:package": "bun test tests/package.test.ts tests/bun-package.test.ts",
     "typecheck": "tsc --noEmit",

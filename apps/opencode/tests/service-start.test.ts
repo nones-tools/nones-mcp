@@ -50,13 +50,13 @@ describe("service start", () => {
       timeoutSeconds: 5,
       clock: fakeClock(),
       probe: async () =>
-        ++probes < 4 ? { ready: false, detail: "not yet" } : ready("0.4.0"),
+        ++probes < 4 ? { ready: false, detail: "not yet" } : ready("0.5.0"),
       launcher,
     });
     expect(result).toMatchObject({
       source: "managed",
       nativeStartRequested: true,
-      mcpVersion: "0.4.0",
+      mcpVersion: "0.5.0",
     });
     expect(probes).toBeGreaterThanOrEqual(4);
     expect(calls).toHaveLength(1);
@@ -76,7 +76,7 @@ describe("service start", () => {
       },
       timeoutSeconds: 2,
       clock: fakeClock(),
-      probe: async () => (++probes < 2 ? { ready: false } : ready("0.4.0")),
+      probe: async () => (++probes < 2 ? { ready: false } : ready("0.5.0")),
       launcher: async () => {
         launches++;
         throw new Error("launcher must not run");
@@ -85,7 +85,7 @@ describe("service start", () => {
     expect(result).toMatchObject({
       source: "explicit",
       nativeStartRequested: false,
-      mcpVersion: "0.4.0",
+      mcpVersion: "0.5.0",
     });
     expect(probes).toBe(2);
     expect(launches).toBe(0);

@@ -1,6 +1,7 @@
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { OpenCodeClient } from "./client";
 import { formatJson } from "./json";
+import { recordJournaledOperation } from "./journal/cli-action";
 import { createServer } from "./server";
 import { ServiceStartError } from "./service-errors";
 import { createMcpProbe } from "./service-probe";
@@ -46,12 +47,31 @@ export async function runServerStart(
     args: [options.cliPath],
     cwd: process.cwd(),
   });
-  const result = await startService({
-    timeoutSeconds: options.timeoutSeconds,
-    opencodeBin: options.opencodeBin,
-    probe,
-  });
+  const startedAt = Date.now();
+  let result: Awaited<ReturnType<typeof startService>>;
+  try {
+    result = await startService({
+      timeoutSeconds: options.timeoutSeconds,
+      opencodeBin: options.opencodeBin,
+      probe,
+    });
+  } catch (error) {
+    await recordJournaledOperation({
+      operation: "opencode.service.start",
+      outcome: "failure",
+      startedAt,
+      endedAt: Date.now(),
+    });
+    throw error;
+  }
+  const endedAt = Date.now();
   console.log(formatJson(result));
+  await recordJournaledOperation({
+    operation: "opencode.service.start",
+    outcome: "success",
+    startedAt,
+    endedAt,
+  });
 }
 
 function failureCode(error: unknown): number {

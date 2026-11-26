@@ -1,5 +1,8 @@
 import { observeSession } from "./monitor-cli";
-import { startSessionPrompt } from "./session-start";
+import { readPrompt } from "./prompt";
+import { startSessionPrompt, type StartedSession } from "./session-start";
+import { recordJournaledOperation } from "./journal/cli-action";
+import { errorSessionID, monitorOutcome } from "./journal-cli";
 
 export interface RunOptions {
   directory: string;
@@ -21,7 +24,23 @@ export async function runRun(
   const deadline = options.timeoutSeconds
     ? Date.now() + options.timeoutSeconds * 1000
     : undefined;
-  const started = await startSessionPrompt(options, env);
+  const prompt = await readPrompt(options.file);
+  const startedAt = Date.now();
+  let started: StartedSession;
+  try {
+    started = await startSessionPrompt(options, env, prompt);
+  } catch (error) {
+    await recordJournaledOperation({
+      operation: "opencode.session.run",
+      prompt,
+      sessionId: errorSessionID(error),
+      outcome: "failure",
+      startedAt,
+      endedAt: Date.now(),
+      env,
+    });
+    throw error;
+  }
   process.stdout.write(
     `${JSON.stringify({
       event: "started",
@@ -33,11 +52,40 @@ export async function runRun(
       receipt: started.receipt,
     })}\n`,
   );
-  const result = await observeSession(started.client, {
-    sessionID: started.info.id,
-    untilTurn: true,
-    baseline: started.info,
-    deadline,
+  let code: number;
+  try {
+    code = (
+      await observeSession(started.client, {
+        sessionID: started.info.id,
+        untilTurn: true,
+        baseline: started.info,
+        deadline,
+      })
+    ).code;
+  } catch (error) {
+    await recordJournaledOperation({
+      operation: "opencode.session.run",
+      prompt,
+      sessionId: started.info.id,
+      sessionTitle: started.info.title ?? options.title,
+      messageId: started.receipt.id,
+      outcome: "failure",
+      startedAt,
+      endedAt: Date.now(),
+      env,
+    });
+    throw error;
+  }
+  await recordJournaledOperation({
+    operation: "opencode.session.run",
+    prompt,
+    sessionId: started.info.id,
+    sessionTitle: started.info.title ?? options.title,
+    messageId: started.receipt.id,
+    outcome: monitorOutcome(code),
+    startedAt,
+    endedAt: Date.now(),
+    env,
   });
-  return result.code;
+  return code;
 }
