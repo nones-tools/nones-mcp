@@ -1,0 +1,179 @@
+name: release
+
+# One immutable root tag releases all four public workspaces from the same commit.
+# Bootstrap is not blocked by npm trust: build, checks, checksums, artifact and
+# GitHub release run while the npm job is gated off by NPM_TRUSTED_PUBLISHER_ENABLED.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing immutable root tag (vX.Y.Z or refs/tags/vX.Y.Z)
+        required: true
+        type: string
+      artifact_run_id:
+        description: Optional earlier run ID whose release-<tag> artifact should be published
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: verify, pack and attest
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      version: ${{ steps.tag.outputs.version }}
+      commit: ${{ steps.tag.outputs.commit }}
+      artifact: ${{ steps.tag.outputs.artifact }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          fetch-depth: 0
+      - name: Resolve release tag
+        id: tag
+        env:
+          REQUESTED_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: bash scripts/release/ci/resolve-tag.sh "$REQUESTED_TAG"
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22.14.0
+      - name: Pin npm
+        run: |
+          npm install --global npm@11.21.3
+          npm --version
+          node --version
+      - name: Fetch main
+        run: git fetch --no-tags origin main:refs/remotes/origin/main
+      - name: Verify tag, manifests and main ancestry
+        run: node scripts/release.mjs verify-tag --tag "${{ steps.tag.outputs.tag }}" --main-ref origin/main
+      - name: Install
+        run: bun install --frozen-lockfile
+      - name: Release tooling tests
+        run: node --test scripts/release.test.mjs
+      - name: Canonical checks
+        run: bun run verify
+      - name: Pack without scripts and install-smoke exact tarballs
+        run: node scripts/release.mjs pack --tag "${{ steps.tag.outputs.tag }}" --out "$RUNNER_TEMP/release"
+      - name: Record verified commit
+        run: printf '%s\n' "${{ steps.tag.outputs.commit }}" > "$RUNNER_TEMP/release/release-commit.txt"
+      - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-path: ${{ runner.temp }}/release/*.tgz
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ steps.tag.outputs.artifact }}
+          path: ${{ runner.temp }}/release/*
+          if-no-files-found: error
+          retention-days: 90
+
+  npm:
+    name: npm publish (OIDC gate)
+    needs: build
+    if: vars.NPM_TRUSTED_PUBLISHER_ENABLED == '1'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22.14.0
+      - name: Pin npm
+        run: |
+          npm install --global npm@11.21.3
+          npm --version
+          node --version
+      - name: Fetch main
+        run: git fetch --no-tags origin main:refs/remotes/origin/main
+      - name: Re-verify tag, manifests and main ancestry
+        run: node scripts/release.mjs verify-tag --tag "${{ needs.build.outputs.tag }}" --main-ref origin/main
+      - name: Download earlier verified artifact
+        if: github.event_name == 'workflow_dispatch' && inputs.artifact_run_id != ''
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ needs.build.outputs.artifact }}
+          path: ${{ runner.temp }}/release
+          run-id: ${{ inputs.artifact_run_id }}
+          github-token: ${{ github.token }}
+      - name: Download artifact from this run
+        if: github.event_name != 'workflow_dispatch' || inputs.artifact_run_id == ''
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ needs.build.outputs.artifact }}
+          path: ${{ runner.temp }}/release
+      - name: Verify artifact commit and hashes before publish
+        run: >-
+          bash scripts/release/ci/verify-artifact.sh
+          "$RUNNER_TEMP/release"
+          "${{ needs.build.outputs.tag }}"
+          "${{ needs.build.outputs.commit }}"
+      - name: Publish staged packages, then promote latest
+        run: >-
+          node scripts/release.mjs publish
+          --tag "${{ needs.build.outputs.tag }}"
+          --out "$RUNNER_TEMP/release"
+          --dist-tag staging
+          --write
+          --provenance
+
+  github-release:
+    name: GitHub release assets
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          fetch-depth: 1
+      - name: Fetch release tag ref
+        env:
+          TAG: ${{ needs.build.outputs.tag }}
+        run: git fetch --force origin "refs/tags/${TAG}:refs/tags/${TAG}"
+      - name: Download earlier verified artifact
+        if: github.event_name == 'workflow_dispatch' && inputs.artifact_run_id != ''
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ needs.build.outputs.artifact }}
+          path: ${{ runner.temp }}/release
+          run-id: ${{ inputs.artifact_run_id }}
+          github-token: ${{ github.token }}
+      - name: Download artifact from this run
+        if: github.event_name != 'workflow_dispatch' || inputs.artifact_run_id == ''
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ needs.build.outputs.artifact }}
+          path: ${{ runner.temp }}/release
+      - name: Verify artifact commit and hashes
+        run: >-
+          bash scripts/release/ci/verify-artifact.sh
+          "$RUNNER_TEMP/release"
+          "${{ needs.build.outputs.tag }}"
+          "${{ needs.build.outputs.commit }}"
+      - name: Create or update GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/release/ci/github-release.sh "${{ needs.build.outputs.tag }}" "$RUNNER_TEMP/release"
