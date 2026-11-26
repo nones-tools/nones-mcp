@@ -1,0 +1,68 @@
+{
+  "name": "@nones/kaiten-mcp",
+  "version": "4.3.0",
+  "type": "module",
+  "description": "MCP server, CLI and typed SDK for the Kaiten API",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "kaiten": "./dist/cli/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "bun build src/index.ts src/cli/index.ts src/mcp/server.ts --outdir dist --target node --format esm --packages external --sourcemap=external && tsc -p tsconfig.build.json",
+    "dev": "bun --watch src/mcp/server.ts",
+    "dev:cli": "bun src/cli/index.ts",
+    "start": "node dist/mcp/server.js",
+    "mcp": "node dist/mcp/server.js",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome lint src tests scripts",
+    "pack": "bun run build && bun pm pack",
+    "prepublishOnly": "bun run build",
+    "release": "bun scripts/release.ts"
+  },
+  "keywords": [
+    "kaiten",
+    "cli",
+    "api",
+    "mcp",
+    "project-management",
+    "sdk",
+    "task-management"
+  ],
+  "author": "Anton",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "inversify": "^8.2.1",
+    "reflect-metadata": "^0.2.2",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.4",
+    "@types/bun": "^1.3.14",
+    "@types/node": "^26.1.1",
+    "typescript": "^7.0.2"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZeiZel/kaiten-mcp.git"
+  },
+  "homepage": "https://github.com/ZeiZel/kaiten-mcp#readme"
+}

@@ -1,0 +1,140 @@
+name: Release
+
+# Runs ONLY for release commits produced by `bun run release` — a commit whose
+# message is exactly `chore: X.Y.Z`. Any other push to master is skipped by the
+# job-level condition below, so regular commits never trigger CI.
+on:
+  push:
+    branches: [master]
+  # Manual fallback: releases the version currently in package.json
+  # (useful when a release-commit run failed for infrastructure reasons).
+  workflow_dispatch:
+
+permissions:
+  contents: write # git tag + GitHub Release
+  packages: write # mirror publish to GitHub Packages
+
+jobs:
+  release:
+    if: "github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'chore: ')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Verify release commit
+        id: version
+        run: |
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "Manual dispatch — releasing package.json version $PKG_VERSION."
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            echo "version=$PKG_VERSION" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          MSG="$(git log -1 --pretty=%s)"
+          if [[ ! "$MSG" =~ ^chore:\ ([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "Not a release commit ('$MSG') — skipping."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          VERSION="${BASH_REMATCH[1]}"
+          if [[ "$VERSION" != "$PKG_VERSION" ]]; then
+            echo "::error::Commit says $VERSION but package.json says $PKG_VERSION"
+            exit 1
+          fi
+          echo "release=true" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Bun
+        if: steps.version.outputs.release == 'true'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node (npm registry auth)
+        if: steps.version.outputs.release == 'true'
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Install
+        if: steps.version.outputs.release == 'true'
+        run: bun install --frozen-lockfile
+
+      - name: Lint
+        if: steps.version.outputs.release == 'true'
+        run: bun run lint
+
+      - name: Typecheck
+        if: steps.version.outputs.release == 'true'
+        run: bun run typecheck
+
+      - name: Test
+        if: steps.version.outputs.release == 'true'
+        run: bun test
+
+      - name: Build
+        if: steps.version.outputs.release == 'true'
+        run: bun run build
+
+      - name: Smoke-test dist under Node
+        if: steps.version.outputs.release == 'true'
+        run: |
+          node dist/cli/index.js help > /dev/null
+          printf '%s\n%s\n%s\n' \
+            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ci","version":"0"}}}' \
+            '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
+            '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+            | node dist/cli/index.js mcp | node -e "
+              let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{
+                const lines=d.trim().split('\n').map(JSON.parse);
+                const n=lines[1].result.tools.length;
+                if(n<58){console.error('tools/list returned '+n);process.exit(1)}
+                console.log('tools:',n);
+              })"
+
+      - name: Publish to npm (@nones/kaiten-mcp)
+        if: steps.version.outputs.release == 'true'
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish mirror to GitHub Packages (@zeizel/kaiten-mcp)
+        if: steps.version.outputs.release == 'true'
+        run: |
+          node -e "
+            const fs = require('fs');
+            const p = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            p.name = '@zeizel/kaiten-mcp';
+            p.publishConfig = { registry: 'https://npm.pkg.github.com', access: 'public' };
+            fs.writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n');
+          "
+          echo "//npm.pkg.github.com/:_authToken=\${NODE_AUTH_TOKEN}" > .npmrc
+          npm publish --ignore-scripts
+          rm -f .npmrc
+          git checkout -- package.json
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag and GitHub Release
+        if: steps.version.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # Release notes = the CHANGELOG section for this version.
+          awk -v ver="$VERSION" '
+            $0 ~ "^## "ver" " || $0 == "## "ver { found=1; next }
+            /^## / && found { exit }
+            found { print }
+          ' CHANGELOG.md > /tmp/notes.md
+          if [[ ! -s /tmp/notes.md ]]; then
+            echo "npm: https://www.npmjs.com/package/@nones/kaiten-mcp/v/$VERSION" > /tmp/notes.md
+          fi
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
+          gh release create "v$VERSION" \
+            --title "v$VERSION" \
+            --notes-file /tmp/notes.md \
+            --latest
