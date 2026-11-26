@@ -1,12 +1,14 @@
-![Nones MCP — the Nones pixel octopus beside the Nones MCP wordmark](assets/brand/banner-nones-mcp.png)
+![Nones MCP — build MCP servers from CLI tools](assets/brand/banner-nones-mcp.png)
 
 # Nones MCP
 
-**Nones MCP** is the Bun monorepo for the `@nones` MCP suite: one shared
-runtime for [Kaiten](apps/kaiten), [OpenCode](apps/opencode) and the
-[DeepSeek Harness session bundle](apps/dsh), plus a local operation journal. It
-is developed at
-[github.com/nones-tools/nones-mcp](https://github.com/nones-tools/nones-mcp).
+**Nones MCP** is a shared toolkit for building MCP servers from CLI tools.
+With [`@nones/mcp-core`](apps/core), you can define an action once and expose
+it as a CLI command, an MCP tool, or both. The runtime includes a module
+system, shared configuration, and optional journaling with pluggable adapters.
+
+The Bun monorepo also contains the [Kaiten](apps/kaiten),
+[OpenCode](apps/opencode), and [DeepSeek Harness](apps/dsh) integrations.
 
 ## Packages
 

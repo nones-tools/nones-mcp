@@ -9,6 +9,7 @@ in-repo, raster-friendly, and safe to embed in GitHub and npm READMEs.
 | `banner-nones-mcp.svg` / `.png` | Root README banner for the Nones MCP monorepo |
 | `../../apps/kaiten/docs/assets/banner.svg` / `.png` | Kaiten MCP banner |
 | `../../apps/opencode/docs/assets/banner.svg` / `.png` | OpenCode MCP banner |
+| `../../apps/dsh/docs/assets/banner.svg` / `.png` | DSH Session MCP banner |
 
 ## Rendering rules
 

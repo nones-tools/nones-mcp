@@ -1,3 +1,5 @@
+[![DSH Session MCP banner with the Nones pixel octopus](https://raw.githubusercontent.com/nones-tools/nones-mcp/main/apps/dsh/docs/assets/banner.png)](https://github.com/nones-tools/nones-mcp/tree/main/apps/dsh)
+
 # @nones/dsh-session-mcp
 
 MCP (Model Context Protocol) server for **DeepSeek Harness sessions** — lets Claude Code,
@@ -7,7 +9,7 @@ switch their model.
 
 Ships as a DeepSeek Harness plugin: installing the bundle starts a bearer-authenticated MCP
 endpoint **together with the harness**, publishes a copy-ready client config, and adds a
-**Settings → MCP** page with live status, the last few requests and every snippet you need.
+**Settings → DeepSeek MCP** page with live status, the last few requests and client configuration snippets.
 No sidecar process to babysit, no port to guess, no second writer on the session log.
 
 ```
@@ -105,6 +107,10 @@ session_send  { sessionId: <new> }   → try the alternative there
 ```
 
 ## Settings → DeepSeek MCP
+
+![DeepSeek MCP settings in the Harness web UI showing listener status, recent requests, connection settings and client configuration snippets](https://raw.githubusercontent.com/nones-tools/nones-mcp/main/apps/dsh/docs/assets/settings.png)
+
+The screenshot uses example request history and a placeholder token.
 
 The harness renders a dedicated settings page. It shows:
 

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="320" viewBox="0 0 1200 320" role="img" aria-labelledby="bannerTitle bannerDesc">
   <title id="bannerTitle">Nones MCP</title>
-  <desc id="bannerDesc">Nones MCP banner: the Nones pixel octopus beside the title Nones MCP, one stdio entry for Kaiten and OpenCode with a shared core and journal.</desc>
+  <desc id="bannerDesc">The Nones pixel octopus beside Nones MCP, a shared core for building MCP servers from CLI tools.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="320" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#050a24"/>
@@ -46,12 +46,12 @@
       <circle cx="18" cy="16" r="4" fill="#39b4ac"/>
       <text x="32" y="21" font-size="12" font-weight="700" letter-spacing="2.4" fill="#dce6ff">NONES TOOLS</text>
     </g>
-    <text x="462" y="65" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="12" letter-spacing="3.2" fill="#39b4ac">MCP SUITE</text>
+    <text x="462" y="65" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="12" letter-spacing="3.2" fill="#39b4ac">MCP CORE</text>
     <text x="1128" y="65" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="14.5" letter-spacing="0.5" fill="#8d9ac0">@nones/mcp-core</text>
     <text x="270" y="154" font-size="66" font-weight="700" letter-spacing="-1.8" fill="#f6f3ff">Nones MCP</text>
-    <text x="274" y="190" font-size="19" fill="#a9b4d4">One stdio entry for Kaiten and OpenCode, with a shared core and journal</text>
+    <text x="274" y="190" font-size="19" fill="#a9b4d4">Build MCP servers from CLI tools</text>
     <path d="M272 218H1128" stroke="url(#rule)" stroke-width="1.5"/>
-    <text x="272" y="248" font-size="11.5" font-weight="600" letter-spacing="2.2" fill="#7b87ad">MODULAR MCP  ·  SHARED CONFIG  ·  SQLITE JOURNAL</text>
+    <text x="272" y="248" font-size="11.5" font-weight="600" letter-spacing="2.2" fill="#7b87ad">COMMAND REGISTRY  ·  SHARED CONFIG  ·  PLUGGABLE JOURNAL</text>
     <text x="1128" y="278" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="11" letter-spacing="1.2" fill="#5f6a91">NONES-TOOLS/NONES-MCP</text>
   </g>
 </svg>
