@@ -1,0 +1,43 @@
+name: Bug report
+description: Report a reproducible problem with the server, CLI, or SDK.
+title: "[Bug]: "
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Include the command or MCP tool call, expected behavior, and actual behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      placeholder: 0.2.0
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Node version and OpenCode version.
+      placeholder: Node 22.14, OpenCode 2.4.1
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Relevant output
+      description: Remove credentials, tokens, and private chat content before posting.
+      render: shell
+    validations:
+      required: false
