@@ -17,7 +17,9 @@ The npm package installs two equivalent bin names, `opencode-mcp` and `oc2-mcp`,
 
 ## Session CLI
 
-Session commands use the running OpenCode service directly. They keep no local job database, require no Python or SQLite, and do not install background monitors. A `ses_...` session ID is the handle: it is the native session, not the old wrapper's job ID. `send` never creates a fresh session, and a missing ID is an error rather than a reason to fork or recreate one.
+Session commands use the running OpenCode service directly. They keep no local job database, require no Python, and do not install background monitors. CLI actions also append best-effort records to a local operation journal (see [Operation journal](#operation-journal)); journaling never changes a native result or exit code.
+
+A `ses_...` session ID is the handle: it is the native session, not the old wrapper's job ID. `send` never creates a fresh session, and a missing ID is an error rather than a reason to fork or recreate one.
 
 ### Start and steer
 
@@ -61,6 +63,81 @@ The native live SSE stream has no replay. The monitor therefore performs short b
 `run` composes start and until-turn monitoring. It prints the started line with the session ID and admission receipt immediately, takes the created-session metadata as the observation baseline before delivery, and reconciles a turn that completes before the first stream read.
 
 Monitor exit codes: `0` turn succeeded, `2` turn failed or was interrupted in `--until-turn` mode, `124` timeout, `130` stopped by signal, `1` validation, connection, or protocol failure. Monitor stdout is protocol data only; diagnostics go to stderr.
+
+## Operation journal
+
+The CLI records native action outcomes in a local SQLite database. MCP stdio, help, and version never open it. Logged operations are `opencode.session.start/send/run/monitor/status/messages/sessions` and `opencode.service.start`. Records include the UTC start time, duration, outcome, and native session ID, title, and message ID when known. Authorized prompt text is stored only for `start`, `send`, and `run`, and only while prompt capture is enabled.
+
+Configuration is read from `OPENCODE_MCP_CONFIG`, otherwise `$XDG_CONFIG_HOME/nones/config.json` (fallback `~/.config/nones/config.json`):
+
+```json
+{
+  "journal": {
+    "enabled": true,
+    "capturePrompts": true,
+    "sqlitePath": "/optional/absolute/journal.sqlite",
+    "adapter": {
+      "module": "./journal-adapter.mjs",
+      "options": {}
+    }
+  }
+}
+```
+
+The default database is `$XDG_STATE_HOME/nones/journal.sqlite` (fallback `~/.local/state/nones/journal.sqlite`). New state directories are `0700` and new database files `0600` on POSIX; an existing database with group or other permissions is refused rather than silently chmodded. `sqlitePath` and `adapter` are mutually exclusive. Other top-level keys are ignored so a monorepo can share one config file.
+
+Read the journal explicitly; there is no automatic deletion command:
+
+```sh
+opencode-mcp journal list --operation-prefix opencode.session. --limit 20
+opencode-mcp journal stats --outcome failure --from 2026-01-01T00:00:00.000Z
+opencode-mcp journal list --include-prompts
+```
+
+`journal list` omits prompt text unless `--include-prompts` is given. Filters are bounded and `--cursor` continues a page. `journal stats` reports counts and average durations without prompts.
+
+Set `"capturePrompts": false` to keep prompt bodies out of the journal. A custom adapter is trusted, locally installed executable code selected only by explicit configuration; it is never discovered from a project directory or downloaded. Relative module paths resolve from the config file. Custom adapter exceptions and remote-driver details are not echoed by the CLI; journal commands report a generic safe summary, while configuration syntax and field validation remain actionable.
+
+Package exports:
+
+- `@nones/opencode-mcp` — MCP server, client, and SDK.
+- `@nones/opencode-mcp/journal` — versioned journal contracts (`JOURNAL_API_VERSION`, `JournalAdapter`, `JournalAdapterFactory`), config loader, and runtime helpers for custom adapters.
+
+Minimal custom adapter:
+
+```ts
+import type { JournalAdapterFactory } from "@nones/opencode-mcp/journal";
+
+export default {
+  apiVersion: 1,
+  create(options) {
+    return {
+      apiVersion: 1,
+      async record(record) {
+        // Send record to the trusted local store.
+        return { id: record.id, inserted: true };
+      },
+      async query() {
+        return { records: [], next: null };
+      },
+      async stats() {
+        return {
+          total: 0,
+          firstAt: null,
+          lastAt: null,
+          byOutcome: [],
+          byOperation: [],
+        };
+      },
+      async close() {},
+    };
+  },
+} satisfies JournalAdapterFactory;
+```
+
+Journaling is best-effort and bounded (100 ms by default). A custom or remote adapter cannot change a successful native result, make a native failure look different, or delay receipt output indefinitely. For `send`, the title lookup happens after admission, is bounded, and is skipped when journaling is disabled.
+
+On Node 22, the built-in `node:sqlite` module can print `ExperimentalWarning: SQLite is an experimental feature` to stderr when the journal first opens. This project does not suppress warnings; stdout and native JSON output remain unchanged.
 
 ## Set up with an agent
 
@@ -184,7 +261,7 @@ const client = await OpenCodeClient.connect();
 const info = await client.request({ operation: "server.info" });
 ```
 
-The published declarations are self-contained per module and resolve for an external TypeScript `NodeNext` consumer.
+The published declarations are self-contained per module and resolve for an external TypeScript `NodeNext` consumer. The root export is the SDK; `@nones/opencode-mcp/journal` exports the versioned journal adapter contract and runtime helpers described above.
 
 ## Upstream behavior
 
@@ -195,4 +272,4 @@ The published declarations are self-contained per module and resolve for an exte
 
 ## Development
 
-Bun 1.4.5 is the pinned build, formatting, and test runner; the published CLI runs on Node 22.14 or newer. Run `bun install --frozen-lockfile`, `bun run format:check`, `bun run lint`, `bun run typecheck`, `bun run build`, `bun test`, and `npm pack --dry-run`. `bun run test:package` packs the tarball, installs it into a fresh consumer, checks NodeNext declarations, runs the installed Node CLI, checks the `oc2-mcp` alias, and launches the installed build with Bun using `--no-env-file` for a bounded stdio MCP handshake. See [CONTRIBUTING.md](CONTRIBUTING.md) for architecture and review guidance.
+Bun 1.4.5 is the pinned build, formatting, and test runner; the published CLI runs on Node 22.14 or newer. Run `bun install --frozen-lockfile`, `bun run format:check`, `bun run lint`, `bun run typecheck`, `bun run build`, `bun test`, and `npm pack --dry-run`. `bun run test:package` packs the tarball, installs it into a fresh consumer, checks NodeNext declarations including the journal subpath, runs the installed Node CLI and journal commands with synthetic config, checks the `oc2-mcp` alias, and launches the installed build with Bun using `--no-env-file` for a bounded stdio MCP handshake and journal read. See [CONTRIBUTING.md](CONTRIBUTING.md) for architecture and review guidance.

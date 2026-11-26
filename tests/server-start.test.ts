@@ -56,7 +56,7 @@ test("server start reuses an explicit endpoint and proves MCP", async () => {
     status: "ready",
     source: "explicit",
     nativeStartRequested: false,
-    mcpVersion: "0.4.0",
+    mcpVersion: "0.5.0",
   });
   expect(["tool", "list"]).toContain(ready.readiness);
   expect(result.stderr).toBe("");

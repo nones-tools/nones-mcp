@@ -13,6 +13,7 @@ import { runRun } from "./run-session";
 import { runMessages, runSessions, runStatus } from "./session-read";
 import { runSend, runStart } from "./session-start";
 import { DEFAULT_SERVICE_TIMEOUT_SECONDS } from "./service-start";
+import { registerJournalCommands } from "./journal/cli-commands";
 import { version } from "./version";
 
 function limitValue(value: string): number {
@@ -176,6 +177,8 @@ program
     "\nEmits a started line with the session ID and admission receipt, then monitor JSON until the turn succeeds, fails, or times out (124).\nExample:\n  $ opencode-mcp run -C . -f prompt.txt --timeout 600",
   )
   .action((options) => runCommand(() => runRun(options)));
+
+registerJournalCommands(program);
 
 const args = process.argv.slice(2);
 await program.parseAsync(args.length ? args : ["mcp"], { from: "user" });

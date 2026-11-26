@@ -162,7 +162,7 @@ async function runProbe(
   input.signal?.addEventListener("abort", onAbort, { once: true });
   const client = new Client({
     name: "opencode-mcp-readiness",
-    version: "0.4.0",
+    version: "0.5.0",
   });
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {

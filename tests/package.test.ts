@@ -1,6 +1,12 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import { packageFixture, type PackageFixture } from "./package-fixture";
 import { startSessionStub } from "./session-stub";
@@ -19,6 +25,8 @@ test("the published tarball contains the CLI, SDK, and declarations", () => {
   expect(fixture.packedFiles).toContain("dist/cli.js");
   expect(fixture.packedFiles).toContain("dist/index.js");
   expect(fixture.packedFiles).toContain("dist/index.d.ts");
+  expect(fixture.packedFiles).toContain("dist/journal/public.js");
+  expect(fixture.packedFiles).toContain("dist/journal/public.d.ts");
   expect(fixture.packedFiles).toContain("dist/types.d.ts");
   expect(fixture.packedFiles).not.toContain("src/index.ts");
   expect(fixture.packedFiles).not.toContain(
@@ -71,6 +79,10 @@ test("an external NodeNext TypeScript consumer resolves the SDK", () => {
   type Operation,
   type Request,
 } from "@nones/opencode-mcp";
+import {
+  JOURNAL_API_VERSION,
+  type JournalAdapterFactory,
+} from "@nones/opencode-mcp/journal";
 
 const env: Record<string, string | undefined> = {};
 const operation: Operation = {
@@ -79,13 +91,30 @@ const operation: Operation = {
   path: "/api/server/info",
   parameters: [],
 };
+const journalVersion: number = JOURNAL_API_VERSION;
+const journalFactory: JournalAdapterFactory = {
+  apiVersion: 1,
+  create: () => ({
+    apiVersion: 1,
+    record: async (record) => ({ id: record.id, inserted: true }),
+    query: async () => ({ records: [], next: null }),
+    stats: async () => ({
+      total: 0,
+      firstAt: null,
+      lastAt: null,
+      byOutcome: [],
+      byOperation: [],
+    }),
+    close: async () => {},
+  }),
+};
 const request: Request = { operation: operation.id };
 const category = classify(operation);
 const grouped = groupHistory({ data: [] });
 const clean = sanitize({ password: "secret" });
 const connect: typeof OpenCodeClient.connect = OpenCodeClient.connect;
 const serve: typeof createServer = createServer;
-export { category, clean, connect, env, grouped, request, serve };
+export { category, clean, connect, env, grouped, journalFactory, journalVersion, request, serve };
 `,
   );
   execFileSync(
@@ -104,11 +133,38 @@ test("the installed Node CLI runs from the packed tarball", () => {
   const version = execFileSync("node", [cli, "--version"], {
     encoding: "utf8",
   });
-  expect(version.trim()).toBe("0.4.0");
+  expect(version.trim()).toBe("0.5.0");
   const output = execFileSync("node", [cli, "help"], { encoding: "utf8" });
   expect(output).toContain("Usage: opencode-mcp");
   expect(output).toContain("start");
   expect(output).toContain("doctor");
+  expect(output).toContain("journal");
+});
+
+test("installed Node journal list and stats use a synthetic config", () => {
+  const cli = path.join(fixture.packageDir, "dist", "cli.js");
+  const directory = mkdtempSync(path.join(fixture.work, "journal-node-"));
+  const config = path.join(directory, "config.json");
+  writeFileSync(
+    config,
+    JSON.stringify({
+      journal: { sqlitePath: path.join(directory, "journal.sqlite") },
+    }),
+  );
+  const env = { ...process.env, OPENCODE_MCP_CONFIG: config };
+  const list = execFileSync("node", [cli, "journal", "list"], {
+    encoding: "utf8",
+    env,
+  });
+  expect(JSON.parse(list)).toEqual({ records: [], next: null });
+  const stats = JSON.parse(
+    execFileSync("node", [cli, "journal", "stats"], {
+      encoding: "utf8",
+      env,
+    }),
+  );
+  expect(stats.total).toBe(0);
+  expect(stats.byOperation).toEqual([]);
 });
 
 test("the oc2-mcp alias points at the same installed CLI", () => {
@@ -122,7 +178,7 @@ test("the oc2-mcp alias points at the same installed CLI", () => {
   const alias = path.join(fixture.consumer, "node_modules", ".bin", "oc2-mcp");
   expect(existsSync(alias)).toBe(true);
   expect(execFileSync(alias, ["--version"], { encoding: "utf8" }).trim()).toBe(
-    "0.4.0",
+    "0.5.0",
   );
 });
 

@@ -68,7 +68,7 @@ test("server start launches a synthetic managed service and proves MCP", async (
       status: "ready",
       source: "managed",
       nativeStartRequested: true,
-      mcpVersion: "0.4.0",
+      mcpVersion: "0.5.0",
       readiness: "tool",
     });
     expect(result.stderr).toBe("");

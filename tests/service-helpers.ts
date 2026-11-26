@@ -17,7 +17,7 @@ export function fakeClock(): ServiceClock {
   };
 }
 
-export function ready(version = "0.4.0"): ProbeResult {
+export function ready(version = "0.5.0"): ProbeResult {
   return {
     ready: true,
     mcpVersion: version,
