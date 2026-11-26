@@ -144,10 +144,25 @@ export { category, clean, connect, env, grouped, request, serve };
 });
 
 test("the installed Node CLI runs from the packed tarball", () => {
+  const cli = path.join(packageDir, "dist", "cli.js");
+  const version = execFileSync("node", [cli, "--version"], {
+    encoding: "utf8",
+  });
+  expect(version.trim()).toBe("0.2.1");
+  const output = execFileSync("node", [cli, "help"], { encoding: "utf8" });
+  expect(output).toContain("Usage: opencode-mcp");
+  expect(output).toContain("doctor");
+});
+
+test("the installed SDK loads under Node", () => {
   const output = execFileSync(
     "node",
-    [path.join(packageDir, "dist", "cli.js"), "help"],
-    { encoding: "utf8" },
+    [
+      "--input-type=module",
+      "-e",
+      "import('@nones/opencode-mcp').then((sdk) => console.log(typeof sdk.createServer))",
+    ],
+    { cwd: consumer, encoding: "utf8" },
   );
-  expect(output).toContain("Usage: opencode-mcp");
+  expect(output.trim()).toBe("function");
 });

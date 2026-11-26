@@ -10,6 +10,7 @@ import {
 } from "./tool-schema";
 import { toolFailure, toolResult } from "./tool-result";
 import type { Operation } from "./types";
+import { version } from "./version";
 
 const streamOperations = ["event.subscribe", "experimental.session.log"];
 
@@ -22,7 +23,7 @@ interface HistoryInput {
 class OpenCodeTools {
   private server = new McpServer({
     name: "opencode-mcp",
-    version: "0.2.0",
+    version,
   });
 
   constructor(

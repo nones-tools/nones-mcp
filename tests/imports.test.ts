@@ -26,7 +26,7 @@ test("source and tests use extensionless relative imports", () => {
       /(?:from\s+|import\s*\(\s*|import\s+)["'](\.[^"']+)["']/g,
     );
     for (const match of specifiers) {
-      if (/\.(?:[cm]?[jt]s|json)$/.test(match[1])) {
+      if (/\.(?:[cm]?[jt]s)$/.test(match[1])) {
         offenders.push(`${path.relative(projectRoot, file)}: ${match[1]}`);
       }
     }

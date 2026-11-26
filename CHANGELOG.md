@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.1
+
+CLI and packaging release; MCP transport, tool schemas, and the public SDK API are unchanged.
+
+- Replaced the hand-rolled argument dispatcher with Commander.js 15.1.0, registering `mcp` and `doctor` as commands with asynchronous `parseAsync` handlers while keeping the same stdio transport and `doctor` diagnostics.
+- Added built-in `help [command]`, `--help`/`-h`, and `--version`/`-V`; root and per-command help include descriptions, examples, and diagnostic notes, and work without a reachable OpenCode service.
+- Kept the no-argument launch running the stdio MCP server, now by parsing `["mcp"]`, and kept invalid commands/options nonzero with stderr diagnostics before any connection.
+- Bundled the package version into the CLI and MCP serverInfo from package.json metadata at build time; both report 0.2.1 under Node.
+- Extended CLI and MCP tests for help aliases, command help, version, invalid input, and a real Node default-launch handshake, and added an installed-SDK Node load and version assertions to packaging checks.
+- Added a copyable README "Set up with an agent" prompt covering global installation, user-level client registration, managed discovery, verification, and conservative capabilities.
+
 ## 0.2.0
 
 Tooling, type-surface, and packaging release; runtime behavior is unchanged.

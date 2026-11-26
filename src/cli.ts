@@ -1,54 +1,30 @@
 #!/usr/bin/env node
-import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
-import { OpenCodeClient } from "./client";
-import { formatJson } from "./json";
-import { createServer } from "./server";
+import { Command } from "commander";
+import { reportFailures, runDoctor, runMcp } from "./commands";
+import { version } from "./version";
 
-class Cli {
-  constructor(private command: string) {}
+const program = new Command()
+  .name("opencode-mcp")
+  .description("MCP server and diagnostics for an existing OpenCode service")
+  .version(version, "-V, --version", "print the CLI and MCP server version");
 
-  async run(): Promise<void> {
-    if (
-      this.command === "help" ||
-      this.command === "--help" ||
-      this.command === "-h"
-    ) {
-      console.log("Usage: opencode-mcp [mcp|doctor|help]");
-      return;
-    }
-    if (this.command !== "mcp" && this.command !== "doctor") {
-      console.error("Unknown command; use help");
-      process.exitCode = 1;
-      return;
-    }
-    try {
-      const client = await OpenCodeClient.connect();
-      if (this.command === "doctor") await this.doctor(client);
-      else {
-        const server = await createServer(client);
-        await server.connect(new StdioServerTransport());
-      }
-    } catch (error) {
-      console.error(
-        error instanceof Error
-          ? error.message
-          : "OpenCode initialization failed",
-      );
-      process.exitCode = 1;
-    }
-  }
+program
+  .command("mcp")
+  .description("run the stdio MCP server (default when no command is given)")
+  .addHelpText(
+    "after",
+    "\nstdout carries JSON-RPC messages only; send diagnostics to stderr.\nExample:\n  $ opencode-mcp mcp",
+  )
+  .action(() => reportFailures(runMcp));
 
-  private async doctor(client: OpenCodeClient): Promise<void> {
-    const operations = await client.operations();
-    const info = await client.request({ operation: "server.info" });
-    console.log(
-      formatJson({
-        healthy: true,
-        info,
-        operations: operations.length,
-      }),
-    );
-  }
-}
+program
+  .command("doctor")
+  .description("check the OpenCode connection and print a health report")
+  .addHelpText(
+    "after",
+    "\nPrints indented JSON with healthy, info, and operations; credentials are never included.\nExample:\n  $ opencode-mcp doctor",
+  )
+  .action(() => reportFailures(runDoctor));
 
-await new Cli(process.argv[2] || "mcp").run();
+const args = process.argv.slice(2);
+await program.parseAsync(args.length ? args : ["mcp"], { from: "user" });

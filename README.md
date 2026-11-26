@@ -13,26 +13,48 @@ npm install -g @nones/opencode-mcp
 opencode-mcp doctor
 ```
 
-`doctor` discovers the managed OpenCode service, reads `server.info`, and reports available operations without printing credentials. Shipped commands are `opencode-mcp mcp` (the default), `opencode-mcp doctor`, and `opencode-mcp help` (`--help` and `-h` are aliases). In `mcp` mode, stdout carries MCP protocol traffic only; use stderr for diagnostics.
+`opencode-mcp mcp` runs the stdio MCP server and is the default when no command is given. `opencode-mcp doctor` reads `server.info` and reports available operations as indented JSON without printing credentials. `opencode-mcp help`, `--help`, and `-h` show built-in help; `--version` and `-V` report 0.2.1 from package metadata. In `mcp` mode, stdout carries JSON-RPC traffic only; use stderr for diagnostics.
+
+## Set up with an agent
+
+Copy this prompt into your MCP-capable coding agent, replacing `<client name>` with the client you intend to configure:
+
+```text
+Set up @nones/opencode-mcp for <client name> on this machine.
+1. Confirm Node 22.14+ and an already running OpenCode 2 service. Never start or replace the service.
+2. Install the latest stable package globally with npm install -g @nones/opencode-mcp.
+3. Register a user-level stdio MCP server with id opencode2 using <client name>'s documented configuration method. Preserve unrelated entries, reuse an equivalent registration, and verify no duplicates.
+4. Use the host-accessible executable (absolute path if needed) with argument mcp. Keep managed discovery and add service file, URL, or auth overrides only if this setup needs them. Do not expose credential values in docs, arguments, logs, or config.
+5. Keep destructive, admin, and exec capabilities off. Run opencode-mcp doctor, then confirm the client can call the MCP tool opencode_server_info.
+6. Report install and config locations and whether the client needs a restart.
+```
+
+## Client registration
 
 ### Codex
 
-Add the server to `~/.codex/config.toml`:
+Prefer the built-in registration command, which writes the user-level config:
+
+```sh
+codex mcp add opencode2 -- opencode-mcp mcp
+```
+
+The corresponding `~/.codex/config.toml` entry is:
 
 ```toml
-[mcp_servers.opencode]
+[mcp_servers.opencode2]
 command = "opencode-mcp"
 args = ["mcp"]
 ```
 
 ### Generic stdio client
 
-Any MCP client that can launch a stdio server can use:
+Any MCP client that can launch a stdio server can use this user-level config:
 
 ```json
 {
   "mcpServers": {
-    "opencode": {
+    "opencode2": {
       "command": "opencode-mcp",
       "args": ["mcp"]
     }
@@ -61,10 +83,9 @@ Capability flags enable only when the value is exactly `1`; any other value leav
 ## Safety and scope
 
 - Requests use the configured origin, reject redirects, and are bounded by timeout and response size. A timed-out mutation may already have completed; check its outcome before retrying.
-- `OPENCODE_MCP_ALLOWED_DIRS` is checked against canonical filesystem paths. Session and project lists are filtered to allowed workspaces, creation requires an allowed `body.location.directory` and checks any parent session, and operations whose scope cannot be verified are rejected.
-- The scope filter is not a multi-user isolation boundary for the OpenCode server itself. All projects and chats on the attached server are visible by default.
-- Credential, authorization provisioning, pairing, and RPC tunnel routes are excluded. Sensitive fields are stripped from responses and errors.
-- MCP clients can see chat content and tool output, so attach only trusted clients. In server mode, stdout is reserved for the MCP transport; never put passwords in command arguments or committed configuration.
+- `OPENCODE_MCP_ALLOWED_DIRS` is checked against canonical paths. Session and project lists are filtered to allowed workspaces, creation requires an allowed `body.location.directory` and checks any parent session, and unverifiable scope fails closed. The scope filter is not a multi-user isolation boundary; all projects and chats on the attached server are visible by default.
+- Credential, authorization provisioning, pairing, and RPC tunnel routes are excluded, and sensitive fields are stripped from responses and errors.
+- MCP clients can see chat content and tool output, so attach only trusted clients. Never put passwords in command arguments or committed configuration.
 
 ## Tools
 
@@ -76,29 +97,25 @@ Capability flags enable only when the value is exactly `1`; any other value leav
 | `opencode_history`        | Group native messages by user prompt with `{ sessionID, cursor?, limit? }`.                                                       |
 | `opencode_events`         | Read a bounded slice of live or per-session log events with `{ sessionID?, source?, types?, after?, limit?, durationMs? }`.       |
 
-The dynamic tools take the same parameters as `opencode_request` except `operation`. Native operations may differ between OpenCode versions: inspect the catalog rather than assuming a route exists.
+The dynamic tools take the same parameters as `opencode_request` except `operation`. Inspect the catalog rather than assuming a route exists.
 
 ## Examples
 
 ### List operations and sessions
 
-Discover session-related operations with `opencode_operations`:
+Discover session operations with `opencode_operations`:
 
 ```json
-{
-  "filter": "session"
-}
+{ "filter": "session" }
 ```
 
-Then call a native operation through `opencode_request`:
+Then call one through `opencode_request` (equivalent to `opencode_session_list` with `{}`):
 
 ```json
-{
-  "operation": "session.list"
-}
+{ "operation": "session.list" }
 ```
 
-The generic call is equivalent to calling `opencode_session_list` with `{}`. Results are native payloads; when scope is configured, project and session lists are filtered to allowed workspaces.
+Results are native payloads; with scope configured, project and session lists are filtered to allowed workspaces.
 
 ### Steer or queue a prompt
 
@@ -106,27 +123,19 @@ Call `opencode_session_prompt` with:
 
 ```json
 {
-  "path": {
-    "sessionID": "ses_example"
-  },
-  "body": {
-    "text": "Please also run the focused tests.",
-    "delivery": "steer"
-  }
+  "path": { "sessionID": "ses_example" },
+  "body": { "text": "Please also run the focused tests.", "delivery": "steer" }
 }
 ```
 
-`steer` asks the running session to accept the message; `queue` schedules it. The call returns the native admission receipt, not proof that the model started or finished the work. The current agent and model stay unchanged unless you switch them with the native operations.
+`steer` asks the running session to accept the message; `queue` schedules it. The call returns the native admission receipt, not proof that the model started or finished. The current agent and model stay unchanged unless you switch them with native operations.
 
 ### Read grouped history
 
 Call `opencode_history` with:
 
 ```json
-{
-  "sessionID": "ses_example",
-  "limit": 50
-}
+{ "sessionID": "ses_example", "limit": 50 }
 ```
 
 Each user prompt is grouped with the assistant steps and tool payloads that follow it:
@@ -146,7 +155,7 @@ Each user prompt is grouped with the assistant steps and tool payloads that foll
 }
 ```
 
-`terminal` is set when the group has an idle marker. `beginsMidGroup` or `endsMidGroup` is true when a page starts or ends partway through a group. Continue with the returned native cursor; when it is an object, pass `cursor.next` as the next `cursor` argument.
+`terminal` is set when the group has an idle marker. A page that starts or ends mid-group sets `beginsMidGroup` or `endsMidGroup`. Continue with the returned native cursor; when it is an object, pass `cursor.next` as the next `cursor`.
 
 ### Read live or logged events
 
@@ -161,20 +170,13 @@ Call `opencode_events` for a bounded live look at one session:
 }
 ```
 
-`live` reads the volatile global stream, filters by session, and cannot replay events missed before the call. It does not accept an `after` cursor.
-
-For the native per-session log, use `source: "log"` and a cursor:
+`live` reads the volatile global stream, filters by session, and cannot replay missed events. For the native per-session log, use `source: "log"` and a cursor:
 
 ```json
-{
-  "sessionID": "ses_example",
-  "source": "log",
-  "after": 42,
-  "limit": 50
-}
+{ "sessionID": "ses_example", "source": "log", "after": 42, "limit": 50 }
 ```
 
-If `source` is omitted and `after` is present, the call uses the log. A log cursor is not valid for the global stream. Depending on the upstream version, the log may retain only a synchronization marker, so it is not a guaranteed full history replay. Streams are bounded by `limit` (1–200), `durationMs` (100–30000), and response size.
+If `source` is omitted and `after` is present, the call uses the log. A log cursor is not valid for the global stream. Depending on the upstream version, the log may retain only a synchronization marker. Streams are bounded by `limit` (1–200), `durationMs` (100–30000), and response size.
 
 ## TypeScript SDK
 
@@ -189,12 +191,10 @@ The published declarations are self-contained per module and resolve for an exte
 
 ## Upstream behavior
 
-- The initial target is OpenCode 2.4.1. Operation IDs, parameters, and experimental surfaces come from the connected server's `/openapi.json`; inspect `opencode_operations` rather than assuming a catalog entry exists.
-- Installed OpenCode's experimental surfaces are exposed as-is. Unsupported upstream operations are not emulated.
+- Operation IDs, parameters, and experimental surfaces come from the connected server's `/openapi.json`; inspect `opencode_operations` rather than assuming a catalog entry exists. Installed experimental surfaces are exposed as-is; unsupported upstream operations are not emulated.
 - Session creation supports the native `parentID` body field when available. Parent linkage is never synthesized.
-- `event.subscribe` and `experimental.session.log` are not available as direct operations; use `opencode_events`.
-- The server never starts, restarts, replaces, or implicitly creates an OpenCode service, and it does not proxy credential, authorization, pairing, or RPC tunnel routes.
+- `event.subscribe` and `experimental.session.log` are not available as direct operations; use `opencode_events`. The server never starts, restarts, replaces, or implicitly creates an OpenCode service, and it does not proxy credential, authorization, pairing, or RPC tunnel routes.
 
 ## Development
 
-Bun 1.4.5 is the pinned build, formatting, and test runner; the published CLI runs on Node 22.14 or newer. Formatting uses native `bun fmt`, linting uses `oxlint`, and declaration emit uses TypeScript. Run `bun install --frozen-lockfile`, `bun run format:check`, `bun run lint`, `bun run typecheck`, `bun run build`, `bun test`, and `npm pack --dry-run`. `bun run test:package` packs the tarball, installs it into a fresh consumer, checks NodeNext declarations, and runs the installed Node CLI. See [CONTRIBUTING.md](CONTRIBUTING.md) for architecture, testing, and review guidance.
+Bun 1.4.5 is the pinned build, formatting, and test runner; the published CLI runs on Node 22.14 or newer. Run `bun install --frozen-lockfile`, `bun run format:check`, `bun run lint`, `bun run typecheck`, `bun run build`, `bun test`, and `npm pack --dry-run`. `bun run test:package` packs the tarball, installs it into a fresh consumer, checks NodeNext declarations, and runs the installed Node CLI. See [CONTRIBUTING.md](CONTRIBUTING.md) for architecture and review guidance.

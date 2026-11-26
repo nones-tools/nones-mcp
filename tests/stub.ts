@@ -1,7 +1,9 @@
 export function startStub() {
+  let requests = 0;
   const server = Bun.serve({
     port: 0,
     fetch(req) {
+      requests++;
       const u = new URL(req.url);
       if (u.pathname === "/openapi.json")
         return Response.json({
@@ -50,5 +52,11 @@ export function startStub() {
       });
     },
   });
-  return { server, url: `http://127.0.0.1:${server.port}` };
+  return {
+    server,
+    url: `http://127.0.0.1:${server.port}`,
+    get requests() {
+      return requests;
+    },
+  };
 }

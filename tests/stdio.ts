@@ -3,17 +3,15 @@ import { spawn } from "node:child_process";
 const timeoutMs = 5000;
 
 export function startCli(
-  command: string,
+  args: string | string[] = [],
   env: Environment = {},
 ): ReturnType<typeof spawn> {
-  return spawn(
-    "node",
-    [process.env.OPENCODE_MCP_TEST_CLI || "dist/cli.js", command],
-    {
-      env: { ...process.env, ...env },
-      stdio: ["pipe", "pipe", "pipe"],
-    },
-  );
+  const cli = process.env.OPENCODE_MCP_TEST_CLI || "dist/cli.js";
+  const extra = Array.isArray(args) ? args : [args];
+  return spawn("node", [cli, ...extra], {
+    env: { ...process.env, ...env },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
 }
 
 export function waitForMessages(

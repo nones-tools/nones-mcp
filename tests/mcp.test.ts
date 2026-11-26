@@ -14,10 +14,10 @@ afterAll(() => stub.server.stop(true));
 
 const send = (message: unknown): string => `${JSON.stringify(message)}\n`;
 
-test("Node stdio MCP initializes with version and pretty parity", async () => {
-  const child = startCli("mcp", { OPENCODE_MCP_URL: url });
-  child.stdin?.write(
-    send({
+async function openSession(args: string[], extra: unknown[] = []) {
+  const child = startCli(args, { OPENCODE_MCP_URL: url });
+  const requests: unknown[] = [
+    {
       jsonrpc: "2.0",
       id: 1,
       method: "initialize",
@@ -26,37 +26,45 @@ test("Node stdio MCP initializes with version and pretty parity", async () => {
         capabilities: {},
         clientInfo: { name: "test", version: "1" },
       },
-    }),
-  );
-  child.stdin?.write(
-    send({ jsonrpc: "2.0", method: "notifications/initialized" }),
-  );
-  child.stdin?.write(
-    send({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} }),
-  );
-  child.stdin?.write(
-    send({
-      jsonrpc: "2.0",
-      id: 3,
-      method: "tools/call",
-      params: {
-        name: "opencode_session_prompt",
-        arguments: {
-          path: { sessionID: "test" },
-          body: { text: "test" },
-        },
-      },
-    }),
+    },
+    { jsonrpc: "2.0", method: "notifications/initialized" },
+    ...extra,
+  ];
+  for (const request of requests) child.stdin?.write(send(request));
+  const ids = requests.flatMap((request: any) =>
+    typeof request.id === "number" ? [request.id] : [],
   );
   const messages = await waitForMessages(child, (all) =>
-    [1, 2, 3].every((id) => all.some((message) => message.id === id)),
+    ids.every((id) => all.some((message) => message.id === id)),
   );
   child.kill();
+  return messages;
+}
+
+test("Node stdio MCP initializes with version and pretty parity", async () => {
+  const messages = await openSession(
+    ["mcp"],
+    [
+      { jsonrpc: "2.0", id: 2, method: "tools/list", params: {} },
+      {
+        jsonrpc: "2.0",
+        id: 3,
+        method: "tools/call",
+        params: {
+          name: "opencode_session_prompt",
+          arguments: {
+            path: { sessionID: "test" },
+            body: { text: "test" },
+          },
+        },
+      },
+    ],
+  );
 
   const initialize = messages.find((message) => message.id === 1);
   expect(initialize?.result.serverInfo).toMatchObject({
     name: "opencode-mcp",
-    version: "0.2.0",
+    version: "0.2.1",
   });
 
   const list = messages.find((message) => message.id === 2);
@@ -68,4 +76,32 @@ test("Node stdio MCP initializes with version and pretty parity", async () => {
   expect(call?.result.content[0].text).toContain('\n  "path"');
   expect(JSON.parse(call?.result.content[0].text)).toEqual(data);
   expect(JSON.stringify(call)).not.toContain("private");
-});
+}, 15000);
+
+test("the default launch without arguments serves MCP over stdio", async () => {
+  const messages = await openSession(
+    [],
+    [
+      { jsonrpc: "2.0", id: 2, method: "tools/list", params: {} },
+      {
+        jsonrpc: "2.0",
+        id: 3,
+        method: "tools/call",
+        params: { name: "opencode_server_info", arguments: {} },
+      },
+    ],
+  );
+
+  const initialize = messages.find((message) => message.id === 1);
+  expect(initialize?.result.serverInfo).toMatchObject({
+    name: "opencode-mcp",
+    version: "0.2.1",
+  });
+
+  const list = messages.find((message) => message.id === 2);
+  expect(JSON.stringify(list?.result)).toContain("opencode_server_info");
+
+  const call = messages.find((message) => message.id === 3);
+  expect(call?.result.structuredContent.data.path).toBe("/api/server/info");
+  expect(JSON.stringify(call)).not.toContain("private");
+}, 15000);
