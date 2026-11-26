@@ -5,3 +5,4 @@ import "./release/git.test.mjs";
 import "./release/publish.test.mjs";
 import "./release/publish-idempotency.test.mjs";
 import "./release/pack.test.mjs";
+import "./release/ci/verify-artifact.test.mjs";

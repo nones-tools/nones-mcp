@@ -128,6 +128,29 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
           fetch-depth: 0
+      - name: Stage release tooling from workflow commit
+        env:
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+        run: |
+          set -euo pipefail
+          tooling="$RUNNER_TEMP/release-tooling"
+          rm -rf "$tooling"
+          mkdir -p "$tooling"
+          if ! git cat-file -e "${WORKFLOW_SHA}^{commit}" 2>/dev/null; then
+            git fetch --no-tags origin main || true
+          fi
+          if ! git cat-file -e "${WORKFLOW_SHA}^{commit}" 2>/dev/null; then
+            git fetch --no-tags origin "$WORKFLOW_SHA"
+          fi
+          commit="$(git rev-parse "${WORKFLOW_SHA}^{commit}")"
+          git archive --format=tar "$commit" | tar -x -C "$tooling"
+          test -f "$tooling/scripts/release.mjs"
+          test -f "$tooling/scripts/release.test.mjs"
+          test -f "$tooling/scripts/release/pack.mjs"
+          test -f "$tooling/scripts/release/ci/verify-artifact.sh"
+          test -f "$tooling/scripts/release/ci/verify-artifact.mjs"
+          echo "RELEASE_TOOLING=$tooling" >> "$GITHUB_ENV"
+          echo "Release tooling from $commit; package source remains $GITHUB_WORKSPACE"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22.14.0
@@ -139,7 +162,7 @@ jobs:
       - name: Fetch main
         run: git fetch --no-tags origin main:refs/remotes/origin/main
       - name: Re-verify tag, manifests and main ancestry
-        run: node scripts/release.mjs verify-tag --tag "${{ needs.build.outputs.tag }}" --main-ref origin/main
+        run: node "$RELEASE_TOOLING/scripts/release.mjs" verify-tag --tag "${{ needs.build.outputs.tag }}" --main-ref origin/main --root "$GITHUB_WORKSPACE"
       - name: Download earlier verified artifact
         if: github.event_name == 'workflow_dispatch' && inputs.artifact_run_id != ''
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -156,7 +179,7 @@ jobs:
           path: ${{ runner.temp }}/release
       - name: Verify artifact commit and hashes before publish
         run: >-
-          bash scripts/release/ci/verify-artifact.sh
+          bash "$RELEASE_TOOLING/scripts/release/ci/verify-artifact.sh"
           "$RUNNER_TEMP/release"
           "${{ needs.build.outputs.tag }}"
           "${{ needs.build.outputs.commit }}"
@@ -180,11 +203,36 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
-          fetch-depth: 1
+          fetch-depth: 0
+      - name: Stage release tooling from workflow commit
+        env:
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+        run: |
+          set -euo pipefail
+          tooling="$RUNNER_TEMP/release-tooling"
+          rm -rf "$tooling"
+          mkdir -p "$tooling"
+          if ! git cat-file -e "${WORKFLOW_SHA}^{commit}" 2>/dev/null; then
+            git fetch --no-tags origin main || true
+          fi
+          if ! git cat-file -e "${WORKFLOW_SHA}^{commit}" 2>/dev/null; then
+            git fetch --no-tags origin "$WORKFLOW_SHA"
+          fi
+          commit="$(git rev-parse "${WORKFLOW_SHA}^{commit}")"
+          git archive --format=tar "$commit" | tar -x -C "$tooling"
+          test -f "$tooling/scripts/release.mjs"
+          test -f "$tooling/scripts/release/ci/verify-artifact.sh"
+          test -f "$tooling/scripts/release/ci/verify-artifact.mjs"
+          echo "RELEASE_TOOLING=$tooling" >> "$GITHUB_ENV"
+          echo "Release tooling from $commit; package source remains $GITHUB_WORKSPACE"
       - name: Fetch release tag ref
         env:
           TAG: ${{ needs.build.outputs.tag }}
         run: git fetch --force origin "refs/tags/${TAG}:refs/tags/${TAG}"
+      - name: Fetch main
+        run: git fetch --no-tags origin main:refs/remotes/origin/main
+      - name: Verify checked-out tag source
+        run: node "$RELEASE_TOOLING/scripts/release.mjs" verify-tag --tag "${{ needs.build.outputs.tag }}" --main-ref origin/main --root "$GITHUB_WORKSPACE"
       - name: Download earlier verified artifact
         if: github.event_name == 'workflow_dispatch' && inputs.artifact_run_id != ''
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -201,7 +249,7 @@ jobs:
           path: ${{ runner.temp }}/release
       - name: Verify artifact commit and hashes
         run: >-
-          bash scripts/release/ci/verify-artifact.sh
+          bash "$RELEASE_TOOLING/scripts/release/ci/verify-artifact.sh"
           "$RUNNER_TEMP/release"
           "${{ needs.build.outputs.tag }}"
           "${{ needs.build.outputs.commit }}"
