@@ -1,0 +1,36 @@
+{
+  "name": "@nones/journal",
+  "version": "5.0.0",
+  "description": "Journal adapter collection for the @nones MCP suite; SQLite is the built-in adapter",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    "./sqlite": {
+      "types": "./dist/sqlite/index.d.ts",
+      "import": "./dist/sqlite/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.14"
+  },
+  "scripts": {
+    "build": "rm -rf dist && bun build src/sqlite/index.ts --outdir dist/sqlite --target node --format esm --packages external && tsc -p tsconfig.build.json && node ../../scripts/fix-declarations.mjs dist",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "peerDependencies": {
+    "@nones/mcp-core": "^0.1.0"
+  },
+  "devDependencies": {
+    "@nones/mcp-core": "workspace:*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nones-tools/nones-mcp.git",
+    "directory": "adapters/journal"
+  }
+}
