@@ -48,9 +48,11 @@ function consumer(
     `${JSON.stringify({ name, private: true, type: "module", dependencies, overrides }, null, 2)}\n`,
   );
   writeFileSync(path.join(directory, "verify.mjs"), script);
-  execFileSync("bun", ["install", "--offline", "--ignore-scripts"], {
+  execFileSync("bun", ["install", "--prefer-offline", "--ignore-scripts"], {
     cwd: directory,
     stdio: "pipe",
+    // Isolated HOME: use a local cache, never the developer's bun cache.
+    env: { ...process.env, HOME: directory },
   });
   return directory;
 }

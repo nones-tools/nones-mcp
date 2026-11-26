@@ -70,9 +70,11 @@ test("packed third-party consumer builds CLI and stdio MCP under Node and Bun", 
     )}\n`,
   );
   writeFileSync(path.join(consumer, "example.mjs"), readFileSync(example, "utf8"));
-  execFileSync("bun", ["install", "--offline", "--ignore-scripts"], {
+  execFileSync("bun", ["install", "--prefer-offline", "--ignore-scripts"], {
     cwd: consumer,
     stdio: "pipe",
+    // Isolated HOME: use a local cache, never the developer's bun cache.
+    env: { ...process.env, HOME: consumer },
   });
   const installed = JSON.parse(
     readFileSync(
